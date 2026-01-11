@@ -1,7 +1,3 @@
-\# \[Link to my Live App](https://stockchecker-kztjgnzu2zswhfk9dzcvpe.streamlit.app/)
-
-
-
 🧱 LEGO Master Auditor
 Version: 1.8.2
 
