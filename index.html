@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Checker Hub</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0e1117; /* Streamlit dark theme color */
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            margin-bottom: 30px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .btn {
+            text-decoration: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            text-align: center;
+        }
+        /* App Button - Streamlit Red/Pink */
+        .btn-app {
+            background-color: #ff4b4b;
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 75, 75, 0.3);
+        }
+        .btn-app:hover {
+            background-color: #ff2b2b;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 75, 75, 0.5);
+        }
+        /* Readme Button - GitHub Gray */
+        .btn-readme {
+            background-color: transparent;
+            color: #fafafa;
+            border: 2px solid #30363d;
+        }
+        .btn-readme:hover {
+            background-color: #30363d;
+            transform: translateY(-3px);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Stock Checker Hub</h1>
+    
+    <div class="container">
+        <a href="https://stockchecker-kztjgnzu2zswhfk9dzcvpe.streamlit.app/" class="btn btn-app" target="_blank">Launch Streamlit App</a>
+        
+        <a href="README.md" class="btn btn-readme">View Project Documentation</a>
+    </div>
+
+</body>
+</html>
