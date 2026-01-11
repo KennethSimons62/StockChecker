@@ -1,0 +1,42 @@
+[
+    {
+        "name": "Wall Drawers",
+        "prefix": "",
+        "start": 1,
+        "end": 1107,
+        "cap": 1,
+        "is_wall": true
+    },
+    {
+        "name": "Cases",
+        "prefix": "C",
+        "start": 1,
+        "end": 180,
+        "cap": 18,
+        "is_wall": false
+    },
+    {
+        "name": "Boxes",
+        "prefix": "B",
+        "start": 1,
+        "end": 40,
+        "cap": 30,
+        "is_wall": false
+    },
+    {
+        "name": "Drawers",
+        "prefix": "D",
+        "start": 1,
+        "end": 38,
+        "cap": 24,
+        "is_wall": false
+    },
+    {
+        "name": "Filing Cab",
+        "prefix": "F",
+        "start": 1,
+        "end": 2,
+        "cap": 25,
+        "is_wall": false
+    }
+]
