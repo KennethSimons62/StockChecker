@@ -10,6 +10,23 @@ from datetime import datetime
 # --- APP METADATA ---
 VERSION = "1.8.2"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
+XML_FILE = "store.xml"
+
+# --- UPLOAD HANDLER ---
+# This checks for the file immediately upon opening.
+if not os.path.exists(XML_FILE):
+    st.set_page_config(page_title="Upload Required", page_icon="🧱")
+    st.title("🧱 LEGO Master Auditor")
+    st.warning(f"⚠️ **{XML_FILE}** not found in the current directory.")
+    
+    uploaded_file = st.file_uploader("Please upload your store.xml file to begin:", type="xml")
+    
+    if uploaded_file is not None:
+        with open(XML_FILE, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        st.success("File saved successfully! Reloading...")
+        st.rerun()
+    st.stop()  # Prevents the rest of the app from running without the file
 
 # --- CATALOG LOADING ---
 @st.cache_data
@@ -114,7 +131,6 @@ if 'temp_categories' not in st.session_state:
 
 # --- MAIN CONTENT ---
 st.title(f"🧱 {app_mode}")
-XML_FILE = "store.xml"
 file_ts, file_age, days_old = get_file_info(XML_FILE)
 
 if file_ts:
@@ -222,7 +238,7 @@ if file_ts:
     except Exception as e:
         st.error(f"Error processing XML: {e}")
 else:
-    st.warning("⚠️ **store.xml not found!** Ensure your file is named exactly 'store.xml' in the script folder.")
+    st.warning("⚠️ **store.xml not found!**")
 
 # --- SIDEBAR EDITOR ---
 st.sidebar.divider()
