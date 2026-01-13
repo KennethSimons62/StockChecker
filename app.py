@@ -9,7 +9,7 @@ from datetime import datetime
 import io
 
 # --- 1. APP CONFIG & CONSTANTS ---
-VERSION = "1.9.5"
+VERSION = "1.9.7"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 PROFILE_DIR = "lego_profiles"
 ADMIN_PASSWORD = "p1qb55NJ????"  #
@@ -23,7 +23,6 @@ if not os.path.exists(PROFILE_DIR):
 def get_profile_list():
     """Scans the profile directory for JSON files."""
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
-    # "Default" is now the primary fallback
     return sorted(files) if files else ["Default"]
 
 def load_profile_file(name):
@@ -35,7 +34,7 @@ def load_profile_file(name):
                 return json.load(f)
         except:
             pass
-    # Master data provided as a headstart for the "Default" profile
+    # Master storage data provided as a headstart
     return [
         {"name": "Drawers 1-1107", "prefix": "", "start": 1, "end": 1107, "cap": 1, "is_wall": False},
         {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30, "is_wall": False},
@@ -82,7 +81,7 @@ def holes_to_ranges(numbers):
 
 @st.cache_data
 def load_internal_catalog():
-    """Loads parts.txt if it exists."""
+    """Loads parts.txt if it exists for part descriptions."""
     if os.path.exists("parts.txt"):
         try:
             df_ref = pd.read_csv("parts.txt", sep='\t', encoding='latin1')
@@ -97,8 +96,6 @@ CATALOG_LOOKUP = load_internal_catalog()
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
 if 'active_profile' not in st.session_state:
-    p_list = get_profile_list()
-    # Forces "Default" to be the startup profile
     st.session_state.active_profile = "Default"
 if 'temp_categories' not in st.session_state:
     st.session_state.temp_categories = load_profile_file(st.session_state.active_profile)
@@ -116,7 +113,6 @@ st.sidebar.markdown("---")
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard"])
 st.sidebar.markdown("---")
 
-# Profile Selection
 profile_list = get_profile_list()
 display_list = sorted(list(set(profile_list + [st.session_state.active_profile])))
 
@@ -128,7 +124,6 @@ if selected_p != st.session_state.active_profile:
     st.session_state.temp_categories = load_profile_file(selected_p)
     st.rerun()
 
-# Profile Upload from Disk
 with st.sidebar.expander("📂 Import Profile from PC"):
     up_prof = st.file_uploader("Upload .json", type="json")
     if up_prof:
@@ -140,12 +135,11 @@ with st.sidebar.expander("📂 Import Profile from PC"):
         except:
             st.error("Invalid File")
 
-# Profile Creation
 with st.sidebar.expander("➕ Create New Profile"):
     new_prof_name = st.text_input("Profile Name", placeholder="MyStore_2")
     if st.button("Create"):
         if new_prof_name:
-            # Clones the current active data to the new profile
+            # Clones current profile as a starting template
             save_profile_file(new_prof_name, st.session_state.temp_categories)
             st.session_state.active_profile = new_prof_name
             st.rerun()
@@ -261,10 +255,12 @@ try:
                     for cond_type, col in zip(['N', 'U'], [c1, c2]):
                         with col:
                             items_in_cond = [x for x in container_contents[drawer] if x['cond'] == cond_type]
-                            st.markdown(f"**{'🆕 NEW' if cond_type == 'N' else '📜 USED'}** ({len(items_in_cond)} items)")
+                            st.markdown(f"### {'🆕 NEW' if cond_type == 'N' else '📜 USED'} ({len(items_in_cond)} items)")
                             for p in items_in_cond:
-                                st.write(f"**{p['qty']}x** {p['desc']}")
-                                st.caption(f"Hole: {p['loc']} | ID: {p['id']}")
+                                # Enhanced display: Visibility for error trapping
+                                st.markdown(f"**{p['qty']}x {p['desc']}**")
+                                st.caption(f"📍 Hole: {p['loc']} | 🆔 Part ID: {p['id']}")
+                                st.divider()
                     if st.button("Focus", key=f"focus_{drawer}"):
                         st.session_state.expanded_index = unique_key
                         st.rerun()
@@ -289,6 +285,7 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
         st.session_state.temp_categories[i]['is_wall'] = st.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
         
+        # Delete button moved inside expander for a cleaner sidebar
         if st.button(f"🗑️ Delete {cat['name']}", key=f"del_{i}", use_container_width=True):
             st.session_state.temp_categories.pop(i)
             st.rerun()
