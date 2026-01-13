@@ -9,10 +9,10 @@ from datetime import datetime
 import io
 
 # --- 1. APP CONFIG & CONSTANTS ---
-VERSION = "1.9.7"
+VERSION = "1.9.8"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 PROFILE_DIR = "lego_profiles"
-ADMIN_PASSWORD = "p1qb55NJ????"  #
+ADMIN_PASSWORD = "p1qb55NJ????" #
 
 # Ensure the profile directory exists immediately
 if not os.path.exists(PROFILE_DIR):
@@ -32,9 +32,8 @@ def load_profile_file(name):
         try:
             with open(path, "r") as f:
                 return json.load(f)
-        except:
-            pass
-    # Master storage data provided as a headstart
+        except: pass
+    # Default storage data
     return [
         {"name": "Drawers 1-1107", "prefix": "", "start": 1, "end": 1107, "cap": 1, "is_wall": False},
         {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30, "is_wall": False},
@@ -71,6 +70,7 @@ def holes_to_ranges(numbers):
     if not numbers: return []
     numbers = sorted(list(numbers))
     ranges = []
+    if not numbers: return []
     start = prev = numbers[0]
     for n in numbers[1:]:
         if n == prev + 1: prev = n
@@ -81,10 +81,12 @@ def holes_to_ranges(numbers):
 
 @st.cache_data
 def load_internal_catalog():
-    """Loads parts.txt if it exists for part descriptions."""
-    if os.path.exists("parts.txt"):
+    """Loads Parts.txt and maps Part Number to its Name/Description."""
+    if os.path.exists("Parts.txt"):
         try:
-            df_ref = pd.read_csv("parts.txt", sep='\t', encoding='latin1')
+            # BrickLink catalog format is usually tab-separated
+            df_ref = pd.read_csv("Parts.txt", sep='\t', encoding='latin1')
+            # Adjust mapping to match your text file columns (Number -> Name)
             return dict(zip(df_ref.iloc[:, 2].astype(str), df_ref.iloc[:, 3]))
         except: return {}
     return {}
@@ -116,8 +118,7 @@ st.sidebar.markdown("---")
 profile_list = get_profile_list()
 display_list = sorted(list(set(profile_list + [st.session_state.active_profile])))
 
-selected_p = st.sidebar.selectbox("Active Profile:", display_list, 
-                                   index=display_list.index(st.session_state.active_profile))
+selected_p = st.sidebar.selectbox("Active Profile:", display_list, index=display_list.index(st.session_state.active_profile))
 
 if selected_p != st.session_state.active_profile:
     st.session_state.active_profile = selected_p
@@ -132,14 +133,12 @@ with st.sidebar.expander("📂 Import Profile from PC"):
             st.session_state.temp_categories = loaded_data
             st.session_state.active_profile = up_prof.name.replace(".json", "")
             st.success("Loaded!")
-        except:
-            st.error("Invalid File")
+        except: st.error("Invalid File")
 
 with st.sidebar.expander("➕ Create New Profile"):
     new_prof_name = st.text_input("Profile Name", placeholder="MyStore_2")
     if st.button("Create"):
         if new_prof_name:
-            # Clones current profile as a starting template
             save_profile_file(new_prof_name, st.session_state.temp_categories)
             st.session_state.active_profile = new_prof_name
             st.rerun()
@@ -179,14 +178,15 @@ try:
             container_conditions[drawer_id].add(cond)
             
             p_id = item.find("ITEMID").text
-            p_name = item.find("ITEMNAME").text if item.find("ITEMNAME") is not None else p_id
-            p_desc = CATALOG_LOOKUP.get(p_id, p_name)
+            # Fixed parsing: Look for color name in XML
+            p_color = item.find("COLORNAME").text if item.find("COLORNAME") is not None else "Unknown Color"
+            p_desc = CATALOG_LOOKUP.get(p_id, "Description Not Found")
             
             loc_parts = re.split(r'[- ]', rem_text, 1)
             loc_detail = loc_parts[1] if len(loc_parts) > 1 else "Main"
 
             container_contents[drawer_id].append({
-                "id": p_id, "desc": p_desc, "cond": cond, "qty": qty, "loc": loc_detail
+                "id": p_id, "desc": p_desc, "color": p_color, "cond": cond, "qty": qty, "loc": loc_detail
             })
 
     if app_mode == "Gap Auditor":
@@ -198,8 +198,7 @@ try:
             
             for txt in all_remarks:
                 for m in re.findall(pat, txt):
-                    if cat.get('is_wall'): 
-                        found[int(m)].add(1)
+                    if cat.get('is_wall'): found[int(m)].add(1)
                     else:
                         num_id, r_ex = m
                         if r_ex: found[int(num_id)].update(parse_sub_ranges(r_ex))
@@ -228,8 +227,7 @@ try:
         for i, cat in enumerate(st.session_state.temp_categories):
             with tabs[i]:
                 res = audit_results[cat['name']]
-                if not res['missing']: 
-                    st.success(f"✅ All drawers in {cat['name']} are accounted for!")
+                if not res['missing']: st.success(f"✅ All drawers in {cat['name']} are accounted for!")
                 else:
                     for num, gaps in res['missing']:
                         lbl = f"{cat['prefix']}{num:03d}" if not cat.get('is_wall') else f"{num:04d}"
@@ -250,16 +248,17 @@ try:
             for drawer in conflicts:
                 unique_key = f"cond_{drawer}"
                 is_exp = (st.session_state.expanded_index == unique_key)
-                with st.expander(f"🔴 Conflict: {drawer}", expanded=is_exp):
+                with st.expander(f"🔴 Conflict: Container {drawer}", expanded=is_exp):
                     c1, c2 = st.columns(2)
                     for cond_type, col in zip(['N', 'U'], [c1, c2]):
                         with col:
                             items_in_cond = [x for x in container_contents[drawer] if x['cond'] == cond_type]
                             st.markdown(f"### {'🆕 NEW' if cond_type == 'N' else '📜 USED'} ({len(items_in_cond)} items)")
                             for p in items_in_cond:
-                                # Enhanced display: Visibility for error trapping
-                                st.markdown(f"**{p['qty']}x {p['desc']}**")
-                                st.caption(f"📍 Hole: {p['loc']} | 🆔 Part ID: {p['id']}")
+                                # High Visibility display for condition auditing
+                                st.markdown(f"**Description:** {p['desc']}")
+                                st.write(f"**Color:** {p['color']}")
+                                st.caption(f"📍 Hole: {p['loc']} | 🆔 Part: {p['id']} | 🔢 Qty: {p['qty']}")
                                 st.divider()
                     if st.button("Focus", key=f"focus_{drawer}"):
                         st.session_state.expanded_index = unique_key
@@ -284,8 +283,6 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"e_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
         st.session_state.temp_categories[i]['is_wall'] = st.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
-        
-        # Delete button moved inside expander for a cleaner sidebar
         if st.button(f"🗑️ Delete {cat['name']}", key=f"del_{i}", use_container_width=True):
             st.session_state.temp_categories.pop(i)
             st.rerun()
