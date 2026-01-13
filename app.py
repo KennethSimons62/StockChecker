@@ -9,7 +9,7 @@ from datetime import datetime
 import io
 
 # --- 1. APP CONFIG & CONSTANTS ---
-VERSION = "1.9.3"
+VERSION = "1.9.4"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 PROFILE_DIR = "lego_profiles"
 ADMIN_PASSWORD = "p1qb55NJ????"  #
@@ -23,7 +23,8 @@ if not os.path.exists(PROFILE_DIR):
 def get_profile_list():
     """Scans the profile directory for JSON files."""
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
-    return sorted(files) if files else ["Default_Store"]
+    # Changed fallback name to "Default"
+    return sorted(files) if files else ["Default"]
 
 def load_profile_file(name):
     """Loads a profile from disk or returns a default template."""
@@ -34,7 +35,8 @@ def load_profile_file(name):
                 return json.load(f)
         except:
             pass
-    return [{"name": "New Wall", "prefix": "", "start": 1, "end": 100, "cap": 1, "is_wall": True}]
+    # Default data provided to give users a headstart
+    return [{"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1, "is_wall": False}]
 
 def save_profile_file(name, data):
     """Saves the current configuration to a JSON file on the server."""
@@ -136,7 +138,7 @@ with st.sidebar.expander("➕ Create New Profile"):
     new_prof_name = st.text_input("Profile Name", placeholder="MyStore_2")
     if st.button("Create"):
         if new_prof_name:
-            save_profile_file(new_prof_name, load_profile_file("Default_Store"))
+            save_profile_file(new_prof_name, load_profile_file("Default"))
             st.session_state.active_profile = new_prof_name
             st.rerun()
 
@@ -248,7 +250,7 @@ try:
                 is_exp = (st.session_state.expanded_index == unique_key)
                 with st.expander(f"🔴 Conflict: {drawer}", expanded=is_exp):
                     c1, c2 = st.columns(2)
-                    for cond_type, col in zip(['N', 'U'], [c1, c2]):
+                    for cond_type, col in zip(['N', 'U'], [c1, col2 if 'col2' in locals() else c2]):
                         with col:
                             items_in_cond = [x for x in container_contents[drawer] if x['cond'] == cond_type]
                             st.markdown(f"**{'🆕 NEW' if cond_type == 'N' else '📜 USED'}** ({len(items_in_cond)} items)")
@@ -270,7 +272,6 @@ if st.sidebar.button("➕ Add New Row"):
     st.session_state.temp_categories.append({"name": "New Section", "prefix": "A", "start": 1, "end": 10, "cap": 1, "is_wall": False})
     st.rerun()
 
-# Reverted Loop with Delete buttons moved INSIDE the Expanders
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 Edit: {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"n_{i}")
@@ -280,12 +281,12 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
         st.session_state.temp_categories[i]['is_wall'] = st.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
         
-        # Move Delete Button here for a cleaner flow
+        # Delete button placed inside the dropdown for a cleaner flow
         if st.button(f"🗑️ Delete {cat['name']}", key=f"del_{i}", use_container_width=True):
             st.session_state.temp_categories.pop(i)
             st.rerun()
 
-# ADMIN LOCK LOGIC
+# --- ADMIN LOCK LOGIC ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔐 Admin Access")
 st.sidebar.caption("Admin Mode required to save changes to the central server.")
