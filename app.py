@@ -9,9 +9,10 @@ from datetime import datetime
 import io
 
 # --- 1. APP CONFIG & CONSTANTS ---
-VERSION = "1.9.2"
+VERSION = "1.9.3"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 PROFILE_DIR = "lego_profiles"
+ADMIN_PASSWORD = "p1qb55NJ????"  #
 
 # Ensure the profile directory exists immediately
 if not os.path.exists(PROFILE_DIR):
@@ -101,14 +102,13 @@ st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide", page_ic
 # --- 5. SIDEBAR: SETTINGS & PROFILE MANAGEMENT ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.caption(f"v{VERSION} | {DEVELOPER}")
-st.sidebar.divider()
+st.sidebar.markdown("---")
 
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard"])
-st.sidebar.divider()
+st.sidebar.markdown("---")
 
 # Profile Selection
 profile_list = get_profile_list()
-# Add current session profile to list if it was uploaded from disk and not yet saved
 display_list = sorted(list(set(profile_list + [st.session_state.active_profile])))
 
 selected_p = st.sidebar.selectbox("Active Profile:", display_list, 
@@ -169,7 +169,6 @@ try:
             rem_text = rem_node.text.strip()
             all_remarks.append(rem_text)
             
-            # Identify Drawer ID (e.g., 'A01' from 'A01-1')
             drawer_id = re.split(r'[-/\\ ]', rem_text)[0]
             cond = (item.find("CONDITION").text or "U").upper()
             qty = int(item.find("QTY").text if item.find("QTY") is not None else 0)
@@ -179,7 +178,6 @@ try:
             p_name = item.find("ITEMNAME").text if item.find("ITEMNAME") is not None else p_id
             p_desc = CATALOG_LOOKUP.get(p_id, p_name)
             
-            # Extract Location Detail (the hole number)
             loc_parts = re.split(r'[- ]', rem_text, 1)
             loc_detail = loc_parts[1] if len(loc_parts) > 1 else "Main"
 
@@ -187,12 +185,10 @@ try:
                 "id": p_id, "desc": p_desc, "cond": cond, "qty": qty, "loc": loc_detail
             })
 
-    # --- GAP AUDITOR TOOL ---
     if app_mode == "Gap Auditor":
         audit_results = {}
         for cat in st.session_state.temp_categories:
             prefix = cat['prefix']
-            # Regex for 4-digit walls or prefix-based drawers
             pat = r"\b(\d{4})\b" if cat.get('is_wall') else rf"{prefix}(\d+)(?:-([0-9/\\-]+))?"
             found = defaultdict(set)
             
@@ -219,13 +215,11 @@ try:
             
             audit_results[cat['name']] = {"missing": missing, "pct": (filled_slots/total_slots if total_slots > 0 else 0)}
 
-        # UI: Dashboard Metrics
         cols = st.columns(len(audit_results))
         for i, (name, data) in enumerate(audit_results.items()):
             cols[i].metric(name, f"{int(data['pct']*100)}%")
             cols[i].progress(data['pct'])
 
-        # UI: Detailed Tabs
         tabs = st.tabs([cat['name'] for cat in st.session_state.temp_categories])
         for i, cat in enumerate(st.session_state.temp_categories):
             with tabs[i]:
@@ -243,7 +237,6 @@ try:
                                 st.session_state.expanded_index = unique_key
                                 st.rerun()
 
-    # --- CONDITION GUARD TOOL ---
     elif app_mode == "Condition Guard":
         conflicts = sorted([k for k, v in container_conditions.items() if len(v) > 1])
         if not conflicts:
@@ -270,7 +263,7 @@ except Exception as e:
     st.error(f"Audit Error: {e}")
 
 # --- 8. SIDEBAR: PROFILE EDITOR ---
-st.sidebar.divider()
+st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Profile Editor")
 
 if st.sidebar.button("➕ Add New Row"):
@@ -279,21 +272,31 @@ if st.sidebar.button("➕ Add New Row"):
 
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 Edit: {cat['name']}"):
-        st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"n_{i}")
-        st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"p_{i}")
-        st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"s_{i}")
-        st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"e_{i}")
-        st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
-        st.session_state.temp_categories[i]['is_wall'] = st.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
+        st.session_state.temp_categories[i]['name'] = st.sidebar.text_input("Label", value=cat['name'], key=f"n_{i}")
+        st.session_state.temp_categories[i]['prefix'] = st.sidebar.text_input("Prefix", value=cat['prefix'], key=f"p_{i}")
+        st.session_state.temp_categories[i]['start'] = st.sidebar.number_input("Start #", value=int(cat['start']), key=f"s_{i}")
+        st.session_state.temp_categories[i]['end'] = st.sidebar.number_input("End #", value=int(cat['end']), key=f"e_{i}")
+        st.session_state.temp_categories[i]['cap'] = st.sidebar.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
+        st.session_state.temp_categories[i]['is_wall'] = st.sidebar.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
         if st.sidebar.button(f"🗑️ Delete {cat['name']}", key=f"del_{i}"):
             st.session_state.temp_categories.pop(i)
             st.rerun()
 
-st.sidebar.divider()
-if st.sidebar.button("💾 SAVE TO SERVER", type="primary", use_container_width=True):
-    save_profile_file(st.session_state.active_profile, st.session_state.temp_categories)
-    st.sidebar.success("Saved to Server!")
+# --- ADMIN LOCK LOGIC ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔐 Admin Access")
+st.sidebar.caption("Admin Mode required to save changes to the central server.")
+input_pass = st.sidebar.text_input("Enter Developer Key", type="password")
 
+if input_pass == ADMIN_PASSWORD:
+    if st.sidebar.button("💾 SAVE TO SERVER", type="primary", use_container_width=True):
+        save_profile_file(st.session_state.active_profile, st.session_state.temp_categories)
+        st.sidebar.success("Master File Updated on Server!")
+else:
+    st.sidebar.warning("Server Save: Locked")
+    st.sidebar.info("Users should use 'BACKUP TO PC' for local sessions.")
+
+st.sidebar.markdown("---")
 st.sidebar.download_button(
     label="📥 BACKUP TO PC (.json)",
     data=json.dumps(st.session_state.temp_categories, indent=4),
