@@ -270,6 +270,7 @@ if st.sidebar.button("➕ Add New Row"):
     st.session_state.temp_categories.append({"name": "New Section", "prefix": "A", "start": 1, "end": 10, "cap": 1, "is_wall": False})
     st.rerun()
 
+# Reverted Loop with Delete buttons moved INSIDE the Expanders
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 Edit: {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"n_{i}")
@@ -278,7 +279,9 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"e_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
         st.session_state.temp_categories[i]['is_wall'] = st.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
-        if st.sidebar.button(f"🗑️ Delete {cat['name']}", key=f"del_{i}"):
+        
+        # Move Delete Button here for a cleaner flow
+        if st.button(f"🗑️ Delete {cat['name']}", key=f"del_{i}", use_container_width=True):
             st.session_state.temp_categories.pop(i)
             st.rerun()
 
