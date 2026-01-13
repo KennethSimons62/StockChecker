@@ -12,7 +12,7 @@ import io
 VERSION = "1.9.3"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 PROFILE_DIR = "lego_profiles"
-ADMIN_PASSWORD = "p1qb55NJ????" #
+ADMIN_PASSWORD = "p1qb55NJ????"  #
 
 # Ensure the profile directory exists immediately
 if not os.path.exists(PROFILE_DIR):
@@ -121,7 +121,7 @@ if selected_p != st.session_state.active_profile:
 
 # Profile Upload from Disk
 with st.sidebar.expander("📂 Import Profile from PC"):
-    up_prof = st.sidebar.file_uploader("Upload .json", type="json")
+    up_prof = st.file_uploader("Upload .json", type="json")
     if up_prof:
         try:
             loaded_data = json.load(up_prof)
@@ -133,8 +133,8 @@ with st.sidebar.expander("📂 Import Profile from PC"):
 
 # Profile Creation
 with st.sidebar.expander("➕ Create New Profile"):
-    new_prof_name = st.sidebar.text_input("Profile Name", placeholder="MyStore_2", key="new_prof_input")
-    if st.sidebar.button("Create"):
+    new_prof_name = st.text_input("Profile Name", placeholder="MyStore_2")
+    if st.button("Create"):
         if new_prof_name:
             save_profile_file(new_prof_name, load_profile_file("Default_Store"))
             st.session_state.active_profile = new_prof_name
@@ -270,27 +270,26 @@ if st.sidebar.button("➕ Add New Row"):
     st.session_state.temp_categories.append({"name": "New Section", "prefix": "A", "start": 1, "end": 10, "cap": 1, "is_wall": False})
     st.rerun()
 
-# Loop through categories with explicit sidebar widgets to ensure they stay inside expanders
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 Edit: {cat['name']}"):
-        st.session_state.temp_categories[i]['name'] = st.sidebar.text_input("Label", value=cat['name'], key=f"n_{i}")
-        st.session_state.temp_categories[i]['prefix'] = st.sidebar.text_input("Prefix", value=cat['prefix'], key=f"p_{i}")
-        st.session_state.temp_categories[i]['start'] = st.sidebar.number_input("Start #", value=int(cat['start']), key=f"s_{i}")
-        st.session_state.temp_categories[i]['end'] = st.sidebar.number_input("End #", value=int(cat['end']), key=f"e_{i}")
-        st.session_state.temp_categories[i]['cap'] = st.sidebar.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
-        st.session_state.temp_categories[i]['is_wall'] = st.sidebar.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
+        st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"n_{i}")
+        st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"p_{i}")
+        st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"s_{i}")
+        st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"e_{i}")
+        st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Drawer", value=int(cat.get('cap', 1)), key=f"c_{i}")
+        st.session_state.temp_categories[i]['is_wall'] = st.checkbox("4-digit", value=cat.get('is_wall', False), key=f"w_{i}")
         if st.sidebar.button(f"🗑️ Delete {cat['name']}", key=f"del_{i}"):
             st.session_state.temp_categories.pop(i)
             st.rerun()
 
-# --- ADMIN LOCK LOGIC ---
+# ADMIN LOCK LOGIC
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔐 Admin Access")
 st.sidebar.caption("Admin Mode required to save changes to the central server.")
-input_pass = st.sidebar.text_input("Enter Developer Key", type="password", key="admin_key_input")
+input_pass = st.sidebar.text_input("Enter Developer Key", type="password")
 
 if input_pass == ADMIN_PASSWORD:
-    if st.sidebar.button("💾 SAVE TO SERVER", type="primary", use_container_width=True, key="save_btn"):
+    if st.sidebar.button("💾 SAVE TO SERVER", type="primary", use_container_width=True):
         save_profile_file(st.session_state.active_profile, st.session_state.temp_categories)
         st.sidebar.success("Master File Updated on Server!")
 else:
@@ -303,6 +302,5 @@ st.sidebar.download_button(
     data=json.dumps(st.session_state.temp_categories, indent=4),
     file_name=f"{st.session_state.active_profile}.json",
     mime="application/json",
-    use_container_width=True,
-    key="backup_btn"
+    use_container_width=True
 )
