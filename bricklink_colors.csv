@@ -1,34 +1,53 @@
-BrickLink ID,BrickLink Color Name,LEGO Name,LEGO ID,Category
-1,White,White,1,Solid
-2,Tan,Brick Yellow,5,Solid
-3,Yellow,Bright Yellow,24,Solid
-4,Orange,Bright Orange,106,Solid
-5,Red,Bright Red,21,Solid
-7,Blue,Bright Blue,23,Solid
-8,Brown,Earth Orange,25,Solid (Old)
-9,Light Gray,Grey,2,Solid (Old)
-10,Dark Gray,Dark Grey,27,Solid (Old)
-11,Black,Black,26,Solid
-12,Trans-Clear,Transparent,40,Transparent
-13,Trans-Black,Trans-Brown,111,Transparent
-21,Chrome Silver,Metalized Silver,309,Special
-22,Chrome Gold,Metalized Gold,310,Special
-55,Sand Blue,Sand Blue,135,Solid
-59,Dark Red,New Dark Red,154,Solid
-63,Dark Blue,Earth Blue,140,Solid
-68,Dark Orange,Dark Orange,38,Solid
-69,Dark Tan,Sand Yellow,138,Solid
-71,Magenta,Bright Reddish Violet,124,solid
-80,Dark Green,Earth Green,141,Solid
-85,Dark Bluish Gray,Dark Stone Grey,199,Solid
-86,Light Bluish Gray,Medium Stone Grey,194,Solid
-88,Reddish Brown,Reddish Brown,192,Solid
-110,Bright Light Orange,Flame Yellowish Orange,191,Solid
-150,Medium Nougat,Medium Nougat,312,Solid
-155,Olive Green,Olive Green,330,Solid
-220,Coral,Vibrant Coral,353,Solid
-108,Trans Bright Green,TR Bright Green,311,Transparent
-103,Bright Light Yellow,Cool Yellow,226,solid
-158,Yellowish Green,Spring Yellowish Green,119,solid
-34,Lime,Bright Yellowish Green,119,solid
-36,Bright Green,Bright Green,37,solid
+"Bricklink ID","Bricklink Color Name","Lego Name","Lego ID","Category"
+1,"White","White",1,"Solid"
+2,"Tan","Brick Yellow",5,"Solid"
+3,"Yellow","Bright Yellow",24,"Solid"
+4,"Orange","Bright Orange",106,"Solid"
+5,"Red","Bright Red",21,"Solid"
+7,"Blue","Bright Blue",23,"Solid"
+8,"Brown","Earth Orange",25,"Solid (Old)"
+9,"Light Gray","Grey",2,"Solid (Old)"
+10,"Dark Gray","Dark Grey",27,"Solid (Old)"
+11,"Black","Black",26,"Solid"
+12,"Trans-Clear","Transparent",40,"Transparent"
+13,"Trans-Black","Trans-Brown",111,"Transparent"
+21,"Chrome Silver","Metalized Silver",309,"Special"
+22,"Chrome Gold","Metalized Gold",310,"Special"
+55,"Sand Blue","Sand Blue",135,"Solid"
+59,"Dark Red","New Dark Red",154,"Solid"
+63,"Dark Blue","Earth Blue",140,"Solid"
+68,"Dark Orange","Dark Orange",38,"Solid"
+69,"Dark Tan","Sand Yellow",138,"Solid"
+71,"Magenta","Bright Reddish Violet",124,"solid"
+80,"Dark Green","Earth Green",141,"Solid"
+85,"Dark Bluish Gray","Dark Stone Grey",199,"Solid"
+86,"Light Bluish Gray","Medium Stone Grey",194,"Solid"
+88,"Reddish Brown","Reddish Brown",192,"Solid"
+110,"Bright Light Orange","Flame Yellowish Orange",191,"Solid"
+150,"Medium Nougat","Medium Nougat",312,"Solid"
+155,"Olive Green","Olive Green",330,"Solid"
+220,"Coral","Vibrant Coral",353,"Solid"
+108,"Trans Bright Green","TR Bright Green",311,"Transparent"
+103,"bright light yellow","cool yellow",226,"solid"
+158,"yellowish green","spring yellowish green",326,"solid"
+34,"lime","bright yellowish green",119,"solid"
+36,"bright green","bright green",37,"solid"
+6,"green","dark green",28,"solid"
+48,"sand green","sand green",151,"solid"
+152,"light aqua","aqua",323,"solid"
+105,"bright light blue","light royal blue",212,"solid"
+42,"medium blue","medium blue",102,"solid"
+156,"medium azure","medium azure",322,"solid"
+153,"dark azure","dark azure",321,"solid"
+89,"dark purple","medium lilac",268,"solid"
+157,"medium lavender","medium lavender",324,"solid"
+154,"lavender","lavender",325,"solid"
+47,"bright pink","light purple",222,"solid"
+47,"dark ppink","bright purple",221,"solid"
+120,"dark brown","dark brown",308,"solid"
+28,"flesh","nougat",18,"solid"
+90,"light flesh","light nougat",283,"solid"
+297,"pearl gold","warm gold",115,"special"
+84,"copper","copper metallic",345,"special"
+95,"flat silver","silver metallic",315,"special"
+77,"dark pearl grey","titanium metallic",316,"special"
