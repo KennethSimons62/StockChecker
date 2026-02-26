@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "4.8.4 - THE SMART TRAINER"
+VERSION = "4.8.5 - THE RESTORATION"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -69,7 +69,6 @@ if 'temp_categories' not in st.session_state:
         st.session_state.temp_categories = get_seller_defaults()
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
-# For cycling clues
 if 'clue_index' not in st.session_state:
     st.session_state.clue_index = 0
 
@@ -124,7 +123,7 @@ def parse_holes(expr):
 st.title(f"🧱 {app_mode}")
 
 if st.session_state.xml_data is None:
-    uploaded_xml = st.file_uploader("Upload store.xml to start Audit or Training:", type="xml")
+    uploaded_xml = st.file_uploader("Upload store.xml to start:", type="xml")
     if uploaded_xml:
         st.session_state.xml_data = uploaded_xml.getvalue()
         st.rerun()
@@ -136,7 +135,7 @@ try:
     items = root.findall(".//ITEM")
 
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
-    # Map ColorID -> List of [PartName, Location]
+    container_contents = defaultdict(list)
     color_clues_map = defaultdict(list) 
 
     for item in items:
@@ -149,18 +148,21 @@ try:
                 norm_id = get_clean_id(pref or "", num)
                 cond = (item.find("CONDITION").text or "U").upper()
                 qty = int(item.find("QTY").text or 0)
-                cid = item.find("COLOR").text
+                cid = str(item.find("COLOR").text)
                 p_id = item.find("ITEMID").text
-                
-                # Build detailed clue
                 p_name = CATALOG_LOOKUP.get(p_id, "Unknown Part")
+                
+                # Clue generation
                 loc_label = f"{pref or ''}{num}"
                 if h_raw: loc_label += f" (Hole {h_raw})"
-                
-                # Check if this part/loc combo is already in clues
                 clue_str = f"<b>{p_name}</b> (ID: {p_id}) @ 📍 <b>{loc_label}</b>"
                 if clue_str not in color_clues_map[cid]:
                     color_clues_map[cid].append(clue_str)
+                
+                # Condition Guard Data Storage
+                container_contents[norm_id].append({
+                    "id": p_id, "name": p_name, "cid": cid, "cond": cond, "qty": qty, "h": h_raw or "1"
+                })
                 
                 h_set = parse_holes(h_raw)
                 for h in h_set:
@@ -168,49 +170,40 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # --- 🧠 TRAINING ZONE (Now with Skip Logic!) ---
+    # --- 🧠 TRAINING ZONE ---
     unknowns = [c for c in color_clues_map.keys() if c not in st.session_state.color_map]
-    
     if unknowns:
         st.markdown(f"<div class='trainer-zone'><h3>🧠 Training Center: {len(unknowns)} New Colors Found</h3>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
-        
         target_cid = unknowns[0]
         available_clues = color_clues_map[target_cid]
-        
-        # Ensure index isn't out of bounds if we switched colors
-        if st.session_state.clue_index >= len(available_clues):
-            st.session_state.clue_index = 0
-            
+        if st.session_state.clue_index >= len(available_clues): st.session_state.clue_index = 0
         current_clue = available_clues[st.session_state.clue_index]
-        
         with col1: 
-            st.metric("BrickLink Code", target_cid)
-            if st.button("⏭️ NEXT CLUE / SKIP", use_container_width=True):
+            st.metric("Color Code", target_cid)
+            if st.button("⏭️ NEXT CLUE", use_container_width=True):
                 st.session_state.clue_index = (st.session_state.clue_index + 1) % len(available_clues)
                 st.rerun()
-                
         with col2: 
-            color_name = st.text_input(f"Name for Color {target_cid}:", placeholder="e.g. Light Bluish Gray", key=f"inp_{target_cid}")
+            color_name = st.text_input(f"Name Color {target_cid}:", key=f"inp_{target_cid}")
             st.markdown(f"<div class='clue-text'>🔍 CLUE {st.session_state.clue_index + 1}/{len(available_clues)}:<br>{current_clue}</div>", unsafe_allow_html=True)
-            
         with col3: 
-            st.write("") # Spacer
-            if st.button("✅ LEARN & SAVE", use_container_width=True):
+            st.write("") 
+            if st.button("✅ SAVE NAME", use_container_width=True):
                 if color_name:
                     st.session_state.color_map[target_cid] = color_name
                     save_registry(st.session_state.color_map)
-                    st.session_state.clue_index = 0 # Reset for next color
+                    st.session_state.clue_index = 0
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
+    # --- TOOLS ---
     if app_mode == "Gap Auditor":
         tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
         for idx, cat in enumerate(st.session_state.temp_categories):
             with tabs[idx]:
                 curr_prefix, curr_cap = str(cat['prefix']).upper().strip(), int(cat['cap'])
                 st.markdown(f"### {cat['name']}")
-                
                 match_count = 0
                 for n in range(int(cat['start']), int(cat['end']) + 1):
                     unit_id = get_clean_id(curr_prefix, n)
@@ -223,7 +216,6 @@ try:
                         if q <= qty_threshold:
                             if purity_filter == "Show All" or purity_filter.upper().startswith(p_state):
                                 unit_matches[h] = {"qty": q, "purity": p_state, "cids": h_info["color_ids"]}
-                    
                     if unit_matches:
                         match_count += 1
                         display_id = f"{curr_prefix}{n:03d}" if curr_prefix else f"{n}"
@@ -235,11 +227,25 @@ try:
                                     grid += f'<div class="hole-box {s_cls}">{h if h in unit_matches else "X"}</div>'
                                     if h % 10 == 0: grid += "<br>"
                                 st.markdown(grid + "</div>", unsafe_allow_html=True)
-                            
                             for h_num, m_data in unit_matches.items():
                                 if m_data['cids']:
                                     names = [st.session_state.color_map.get(cid, f"Code {cid}") for cid in m_data['cids']]
                                     st.markdown(f"📍 **Slot {h_num}:** {', '.join(names)}")
+                if match_count == 0: st.warning("No matches.")
+
+    elif app_mode == "Condition Guard":
+        # RESTORED: Find any container where any hole has more than one condition
+        conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
+        if not conflicts:
+            st.success("✅ No Mixed Conditions! All storage units are pure.")
+        else:
+            st.error(f"🔴 Found {len(conflicts)} containers with mixed New/Used stock.")
+            for c_id in sorted(conflicts):
+                with st.expander(f"⚠️ Conflict in {c_id}"):
+                    # Show exactly what's inside
+                    for row in container_contents[c_id]:
+                        c_name = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
+                        st.write(f"**{row['qty']}x** {row['name']} — {c_name} (**{row['cond']}**) @ Hole {row['h']}")
 
 except Exception as e:
     st.error(f"Error: {e}")
