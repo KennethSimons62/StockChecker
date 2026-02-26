@@ -8,12 +8,12 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "4.8.1 - THE FULL WORKHORSE"
+VERSION = "4.8.4 - THE SMART TRAINER"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
 
-# --- 2. MEMORY ENGINE (Color Registry) ---
+# --- 2. MEMORY ENGINE ---
 REGISTRY_FILE = "color_registry.json"
 PROFILE_DIR = "lego_profiles"
 
@@ -36,6 +36,17 @@ def save_registry(data):
 if 'color_map' not in st.session_state:
     st.session_state.color_map = load_registry()
 
+@st.cache_data
+def load_parts_catalog():
+    if os.path.exists("Parts.txt"):
+        try:
+            df = pd.read_csv("Parts.txt", sep='\t', encoding='latin1')
+            return dict(zip(df.iloc[:, 2].astype(str), df.iloc[:, 3]))
+        except: return {}
+    return {}
+
+CATALOG_LOOKUP = load_parts_catalog()
+
 # --- 3. STORAGE DEFAULTS ---
 def get_seller_defaults():
     return [
@@ -46,14 +57,9 @@ def get_seller_defaults():
         {"name": "Filing Cabinet (FC)", "prefix": "FC", "start": 1, "end": 2, "cap": 25}
     ]
 
-def get_profile_list():
-    files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
-    return sorted(files) if files else ["Default"]
-
-# --- 4. SESSION STATE ANCHORING ---
+# --- 4. SESSION STATE ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
-
 if 'temp_categories' not in st.session_state:
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
@@ -61,76 +67,34 @@ if 'temp_categories' not in st.session_state:
             st.session_state.temp_categories = json.load(f)
     else:
         st.session_state.temp_categories = get_seller_defaults()
-
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
+# For cycling clues
+if 'clue_index' not in st.session_state:
+    st.session_state.clue_index = 0
 
 # --- 5. PAGE STYLE ---
 st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide")
 
 st.markdown("""
     <style>
-    .trainer-zone { background-color: #1e1b4b; padding: 20px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 25px; color: white; }
+    .trainer-zone { background-color: #1e1b4b; padding: 25px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 25px; color: white; }
+    .clue-text { color: #a5b4fc; font-style: italic; font-size: 1rem; margin-top: 10px; border-left: 4px solid #6366f1; padding-left: 15px; background: rgba(99, 102, 241, 0.1); padding: 10px; border-radius: 0 8px 8px 0; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .hole-box { display: inline-block; width: 30px; height: 30px; margin: 2px; border-radius: 4px; text-align: center; font-size: 10px; line-height: 30px; font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.1); }
     .hole-empty { background-color: #10b981; }
     .hole-low { background-color: #f59e0b; }
     .hole-filled { background-color: #ef4444; opacity: 0.15; }
-    .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 6. SIDEBAR (The Command Center) ---
+# --- 6. SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
-
-st.sidebar.subheader("🔍 Search Filters")
 qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0)
 purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
-
 st.sidebar.markdown("---")
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard"])
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("📂 Profile Commander")
-profiles = get_profile_list()
-selected_p = st.sidebar.selectbox("Load Profile", profiles, index=profiles.index(st.session_state.active_profile) if st.session_state.active_profile in profiles else 0)
-
-if selected_p != st.session_state.active_profile:
-    st.session_state.active_profile = selected_p
-    path = os.path.join(PROFILE_DIR, f"{selected_p}.json")
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            st.session_state.temp_categories = json.load(f)
-    st.rerun()
-
-new_name = st.sidebar.text_input("Profile Name", value=st.session_state.active_profile)
-col_s1, col_s2 = st.sidebar.columns(2)
-with col_s1:
-    if st.button("💾 SAVE", use_container_width=True):
-        path = os.path.join(PROFILE_DIR, f"{new_name}.json")
-        with open(path, "w") as f:
-            json.dump(st.session_state.temp_categories, f, indent=4)
-        st.session_state.active_profile = new_name
-        st.sidebar.success("Saved!")
-        st.rerun()
-with col_s2:
-    if st.button("🗑️ DELETE", use_container_width=True):
-        path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
-        if os.path.exists(path) and st.session_state.active_profile != "Default":
-            os.remove(path)
-            st.session_state.active_profile = "Default"
-            st.rerun()
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🛠️ Layout Editor")
-for i, cat in enumerate(st.session_state.temp_categories):
-    with st.sidebar.expander(f"📁 {cat['name']}"):
-        st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"lab_{i}")
-        st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"pre_{i}")
-        st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sta_{i}")
-        st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"end_{i}")
-        st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"cap_{i}")
 
 # --- 7. CORE LOGIC ---
 def get_clean_id(prefix, number):
@@ -160,19 +124,20 @@ def parse_holes(expr):
 st.title(f"🧱 {app_mode}")
 
 if st.session_state.xml_data is None:
-    uploaded_xml = st.file_uploader("Upload store.xml to Audit or Train:", type="xml")
+    uploaded_xml = st.file_uploader("Upload store.xml to start Audit or Training:", type="xml")
     if uploaded_xml:
         st.session_state.xml_data = uploaded_xml.getvalue()
         st.rerun()
     st.stop()
 
-# --- 9. THE AUDIT & TRAINING ENGINE ---
+# --- 9. THE ENGINE ---
 try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
-    all_found_colors = set()
+    # Map ColorID -> List of [PartName, Location]
+    color_clues_map = defaultdict(list) 
 
     for item in items:
         rem_node = item.find("REMARKS")
@@ -185,7 +150,17 @@ try:
                 cond = (item.find("CONDITION").text or "U").upper()
                 qty = int(item.find("QTY").text or 0)
                 cid = item.find("COLOR").text
-                all_found_colors.add(cid)
+                p_id = item.find("ITEMID").text
+                
+                # Build detailed clue
+                p_name = CATALOG_LOOKUP.get(p_id, "Unknown Part")
+                loc_label = f"{pref or ''}{num}"
+                if h_raw: loc_label += f" (Hole {h_raw})"
+                
+                # Check if this part/loc combo is already in clues
+                clue_str = f"<b>{p_name}</b> (ID: {p_id}) @ 📍 <b>{loc_label}</b>"
+                if clue_str not in color_clues_map[cid]:
+                    color_clues_map[cid].append(clue_str)
                 
                 h_set = parse_holes(h_raw)
                 for h in h_set:
@@ -193,20 +168,39 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # --- 🧠 TRAINING ZONE ---
-    unknowns = [c for c in all_found_colors if c not in st.session_state.color_map]
+    # --- 🧠 TRAINING ZONE (Now with Skip Logic!) ---
+    unknowns = [c for c in color_clues_map.keys() if c not in st.session_state.color_map]
+    
     if unknowns:
-        st.markdown(f"<div class='trainer-zone'><h3>🧠 Training Mode: {len(unknowns)} New Colors Found</h3>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1,2,1])
-        target = unknowns[0]
-        with col1: st.metric("BrickLink Code", target)
-        with col2: color_name = st.text_input(f"Name for code {target}:", placeholder="e.g. Dark Bluish Gray")
+        st.markdown(f"<div class='trainer-zone'><h3>🧠 Training Center: {len(unknowns)} New Colors Found</h3>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        target_cid = unknowns[0]
+        available_clues = color_clues_map[target_cid]
+        
+        # Ensure index isn't out of bounds if we switched colors
+        if st.session_state.clue_index >= len(available_clues):
+            st.session_state.clue_index = 0
+            
+        current_clue = available_clues[st.session_state.clue_index]
+        
+        with col1: 
+            st.metric("BrickLink Code", target_cid)
+            if st.button("⏭️ NEXT CLUE / SKIP", use_container_width=True):
+                st.session_state.clue_index = (st.session_state.clue_index + 1) % len(available_clues)
+                st.rerun()
+                
+        with col2: 
+            color_name = st.text_input(f"Name for Color {target_cid}:", placeholder="e.g. Light Bluish Gray", key=f"inp_{target_cid}")
+            st.markdown(f"<div class='clue-text'>🔍 CLUE {st.session_state.clue_index + 1}/{len(available_clues)}:<br>{current_clue}</div>", unsafe_allow_html=True)
+            
         with col3: 
             st.write("") # Spacer
-            if st.button("✅ LEARN"):
+            if st.button("✅ LEARN & SAVE", use_container_width=True):
                 if color_name:
-                    st.session_state.color_map[target] = color_name
+                    st.session_state.color_map[target_cid] = color_name
                     save_registry(st.session_state.color_map)
+                    st.session_state.clue_index = 0 # Reset for next color
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -215,7 +209,7 @@ try:
         for idx, cat in enumerate(st.session_state.temp_categories):
             with tabs[idx]:
                 curr_prefix, curr_cap = str(cat['prefix']).upper().strip(), int(cat['cap'])
-                st.markdown(f"<div class='cat-header'>{cat['name']}</div>", unsafe_allow_html=True)
+                st.markdown(f"### {cat['name']}")
                 
                 match_count = 0
                 for n in range(int(cat['start']), int(cat['end']) + 1):
@@ -252,4 +246,5 @@ except Exception as e:
 
 if st.button("🔄 Clear Upload"):
     st.session_state.xml_data = None
+    st.session_state.clue_index = 0
     st.rerun()
