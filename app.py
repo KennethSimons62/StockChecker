@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.5.2 - THE PNG UPGRADE"
+VERSION = "5.5.3 - THE READABILITY UPDATE"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -84,9 +84,47 @@ st.markdown("""
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     
-    .swatch-item { border: 1px solid #334155; border-radius: 6px; padding: 8px; text-align: center; background: #0f172a; margin-bottom: 12px; min-height: 140px; }
-    .swatch-missing { height: 80px; background: #1e293b; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 0.55rem; border: 1px dashed #334155; margin-bottom: 8px; }
-    .swatch-text { font-size: 0.7rem; color: #cbd5e1; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; }
+    /* CLEAN SWATCH CARD - NO GHOST BOXES */
+    .swatch-item { 
+        border: 2px solid #334155; 
+        border-radius: 10px; 
+        padding: 12px; 
+        text-align: center; 
+        background: #0f172a; 
+        margin-bottom: 15px; 
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    .swatch-missing { 
+        height: 80px; 
+        width: 80px;
+        background: #1e293b; 
+        border-radius: 6px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        color: #64748b; 
+        font-size: 0.6rem; 
+        border: 1px dashed #475569; 
+        margin-bottom: 10px; 
+    }
+    .swatch-text { 
+        font-size: 0.95rem; /* SENSIBLE SIZE */
+        color: #f8fafc; 
+        font-weight: 700; 
+        line-height: 1.2;
+        margin-top: 5px;
+        word-wrap: break-word;
+    }
+    .swatch-id-sub {
+        font-size: 0.75rem;
+        color: #3b82f6;
+        font-family: monospace;
+        margin-top: 2px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -218,6 +256,7 @@ try:
         all_xml_cids = set(pure_clues_map.keys())
         unknowns = [c for c in all_xml_cids if c not in st.session_state.color_map]
         
+        # Discovery Zone
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Discovery Zone")
@@ -227,12 +266,12 @@ try:
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
-                st.metric("ID Found", target_cid)
-                if st.button("⏭️ NEXT PURE CLUE"):
+                st.metric("ID", target_cid)
+                if st.button("⏭️ NEXT CLUE"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with col2:
-                train_name = st.text_input(f"Name for {target_cid}:", key=f"reg_train_{st.session_state.reset_key}")
+                train_name = st.text_input(f"Friendly Name:", key=f"reg_train_{st.session_state.reset_key}")
                 st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             with col3:
                 st.write("")
@@ -247,21 +286,22 @@ try:
 
         st.subheader("🎨 Swatch Gallery")
         if st.session_state.color_map:
-            cols = st.columns(10)
+            cols = st.columns(8) # Reduced to 8 columns for better text width
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             for i, cid in enumerate(sorted_cids):
-                with cols[i % 10]:
+                with cols[i % 8]:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
                     st.markdown("<div class='swatch-item'>", unsafe_allow_html=True)
                     if os.path.exists(img_path):
-                        st.image(img_path, use_container_width=True)
+                        st.image(img_path, use_container_width=False, width=80)
                     else:
-                        st.markdown("<div class='swatch-missing'>NO PHOTO<br>"+padded+".png</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='swatch-missing'>{padded}.png</div>", unsafe_allow_html=True)
                     
-                    st.markdown(f"<div class='swatch-text'>{st.session_state.color_map[cid]} ({cid})</div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='swatch-text'>{st.session_state.color_map[cid]}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='swatch-id-sub'>ID: {cid}</div></div>", unsafe_allow_html=True)
 
         with st.expander("⌨️ Manual Registry Entry"):
             m1, m2 = st.columns(2)
