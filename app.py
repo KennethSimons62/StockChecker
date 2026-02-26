@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.2.0 - THE ANCHOR BUILD"
+VERSION = "5.2.1 - THE WIDGET FIX"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -75,6 +75,13 @@ if 'xml_data' not in st.session_state:
 if 'clue_index' not in st.session_state:
     st.session_state.clue_index = 0
 
+# Fix for the "cannot be modified" error
+if 'reset_key' not in st.session_state:
+    st.session_state.reset_key = 0
+
+def trigger_reset():
+    st.session_state.reset_key += 1
+
 # --- 4. PAGE STYLE ---
 st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide")
 
@@ -91,7 +98,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. SIDEBAR (LOCKED GLOBAL TOOLS) ---
+# --- 5. SIDEBAR (ANCHORED) ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
@@ -127,10 +134,6 @@ if st.sidebar.button("💾 SAVE PROFILE"):
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
-if st.sidebar.button("➕ Add New Storage Section"):
-    st.session_state.temp_categories.append({"name": "New", "prefix": "X", "start": 1, "end": 10, "cap": 1})
-    st.rerun()
-
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"lab_{i}")
@@ -138,9 +141,6 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sta_{i}")
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"end_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"cap_{i}")
-        if st.button("🗑️ Remove Section", key=f"rem_{i}"):
-            st.session_state.temp_categories.pop(i)
-            st.rerun()
 
 # --- 6. CORE LOGIC ---
 def get_clean_id(prefix, number):
@@ -209,14 +209,14 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # GPS Pure Clue Logic
+    # Clue Processing
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
             if len(stats['color_ids']) == 1:
                 target_cid = list(stats['color_ids'])[0]
                 for content in container_contents[loc_id]:
                     if content['h'] == str(hole_num) or (content['h'] == "1" and hole_num == 1):
-                        clue_str = f"<b>{content['name']}</b> (ID: {content['id']}) @ 📍 <b>{loc_id}{' (Hole '+str(hole_num)+')' if hole_num > 1 else ''}</b>"
+                        clue_str = f"<b>{content['name']}</b> @ 📍 <b>{loc_id}{' (Hole '+str(hole_num)+')' if hole_num > 1 else ''}</b>"
                         if clue_str not in pure_clues_map[target_cid]:
                             pure_clues_map[target_cid].append(clue_str)
 
@@ -234,11 +234,12 @@ try:
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
                 st.metric("Found ID", target_cid)
-                if st.button("⏭️ NEXT PURE CLUE"):
+                if st.button("⏭️ NEXT CLUE"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with col2:
-                train_name = st.text_input(f"Name Color {target_cid}:", key="trainer_name_box")
+                # Key changes based on st.session_state.reset_key to force reset
+                train_name = st.text_input(f"Name Color {target_cid}:", key=f"train_box_{st.session_state.reset_key}")
                 st.markdown(f"<div class='clue-box'><b>Unique GPS Clue:</b><br>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             with col3:
                 st.write("")
@@ -247,22 +248,20 @@ try:
                         st.session_state.color_map[target_cid] = train_name
                         save_registry(st.session_state.color_map)
                         st.session_state.clue_index = 0
-                        # Clear the box and reload
-                        st.session_state.trainer_name_box = ""
+                        trigger_reset()
                         st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
         col_left, col_right = st.columns([1, 1])
         with col_left:
             st.subheader("➕ Manual Addition")
-            m_id = st.text_input("Color ID #", key="man_id_box")
-            m_name = st.text_input("Name", key="man_name_box")
+            m_id = st.text_input("Color ID #", key=f"man_id_{st.session_state.reset_key}")
+            m_name = st.text_input("Name", key=f"man_name_{st.session_state.reset_key}")
             if st.button("Add Now"):
                 if m_id and m_name:
                     st.session_state.color_map[str(m_id)] = m_name
                     save_registry(st.session_state.color_map)
-                    st.session_state.man_id_box = ""
-                    st.session_state.man_name_box = ""
+                    trigger_reset()
                     st.rerun()
 
         with col_right:
@@ -309,7 +308,7 @@ try:
     # --- MODE: CONDITION GUARD ---
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts: st.success("✅ Condition Purity: Consistent.")
+        if not conflicts: st.success("✅ Consistent.")
         else:
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
