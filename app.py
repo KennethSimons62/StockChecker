@@ -8,19 +8,35 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "4.5.0 - THE CLEAN SWEEP"
+VERSION = "4.8.1 - THE FULL WORKHORSE"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
 
-# --- 2. CONFIG & FILE SYSTEM ---
+# --- 2. MEMORY ENGINE (Color Registry) ---
+REGISTRY_FILE = "color_registry.json"
 PROFILE_DIR = "lego_profiles"
-ADMIN_PASSWORD = "p1qb55NJ????" 
 
 if not os.path.exists(PROFILE_DIR):
     try: os.makedirs(PROFILE_DIR)
     except: pass
 
+def load_registry():
+    if os.path.exists(REGISTRY_FILE):
+        try:
+            with open(REGISTRY_FILE, "r") as f:
+                return json.load(f)
+        except: return {}
+    return {}
+
+def save_registry(data):
+    with open(REGISTRY_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+if 'color_map' not in st.session_state:
+    st.session_state.color_map = load_registry()
+
+# --- 3. STORAGE DEFAULTS ---
 def get_seller_defaults():
     return [
         {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
@@ -31,33 +47,30 @@ def get_seller_defaults():
     ]
 
 def get_profile_list():
-    if not os.path.exists(PROFILE_DIR): return ["Default"]
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
     return sorted(files) if files else ["Default"]
 
-# --- 3. SESSION STATE ---
+# --- 4. SESSION STATE ANCHORING ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
 
 if 'temp_categories' not in st.session_state:
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
-        try:
-            with open(path, "r") as f:
-                st.session_state.temp_categories = json.load(f)
-        except:
-            st.session_state.temp_categories = get_seller_defaults()
+        with open(path, "r") as f:
+            st.session_state.temp_categories = json.load(f)
     else:
         st.session_state.temp_categories = get_seller_defaults()
 
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
 
-# --- 4. PAGE STYLE ---
+# --- 5. PAGE STYLE ---
 st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide")
 
 st.markdown("""
     <style>
+    .trainer-zone { background-color: #1e1b4b; padding: 20px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 25px; color: white; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .hole-box { display: inline-block; width: 30px; height: 30px; margin: 2px; border-radius: 4px; text-align: center; font-size: 10px; line-height: 30px; font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.1); }
     .hole-empty { background-color: #10b981; }
@@ -67,7 +80,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. SIDEBAR ---
+# --- 6. SIDEBAR (The Command Center) ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
@@ -80,7 +93,6 @@ app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guar
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Profile Commander")
-
 profiles = get_profile_list()
 selected_p = st.sidebar.selectbox("Load Profile", profiles, index=profiles.index(st.session_state.active_profile) if st.session_state.active_profile in profiles else 0)
 
@@ -92,27 +104,35 @@ if selected_p != st.session_state.active_profile:
             st.session_state.temp_categories = json.load(f)
     st.rerun()
 
-new_profile_name = st.sidebar.text_input("Save As New Name", value=st.session_state.active_profile)
-if st.sidebar.button("💾 SAVE PROFILE", use_container_width=True):
-    if new_profile_name:
-        path = os.path.join(PROFILE_DIR, f"{new_profile_name}.json")
+new_name = st.sidebar.text_input("Profile Name", value=st.session_state.active_profile)
+col_s1, col_s2 = st.sidebar.columns(2)
+with col_s1:
+    if st.button("💾 SAVE", use_container_width=True):
+        path = os.path.join(PROFILE_DIR, f"{new_name}.json")
         with open(path, "w") as f:
             json.dump(st.session_state.temp_categories, f, indent=4)
-        st.session_state.active_profile = new_profile_name
-        st.sidebar.success(f"Saved: {new_profile_name}")
+        st.session_state.active_profile = new_name
+        st.sidebar.success("Saved!")
         st.rerun()
+with col_s2:
+    if st.button("🗑️ DELETE", use_container_width=True):
+        path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
+        if os.path.exists(path) and st.session_state.active_profile != "Default":
+            os.remove(path)
+            st.session_state.active_profile = "Default"
+            st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
-        st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"l_{i}")
-        st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"p_{i}")
-        st.session_state.temp_categories[i]['start'] = st.number_input("Start", value=int(cat['start']), key=f"s_{i}")
-        st.session_state.temp_categories[i]['end'] = st.number_input("End", value=int(cat['end']), key=f"e_{i}")
-        st.session_state.temp_categories[i]['cap'] = st.number_input("Holes", value=int(cat['cap']), key=f"c_{i}")
+        st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"lab_{i}")
+        st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"pre_{i}")
+        st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sta_{i}")
+        st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"end_{i}")
+        st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"cap_{i}")
 
-# --- 6. CORE LOGIC ---
+# --- 7. CORE LOGIC ---
 def get_clean_id(prefix, number):
     try:
         n = str(int(number))
@@ -136,112 +156,100 @@ def parse_holes(expr):
             except: continue
     return holes if holes else {1}
 
-# --- 7. MAIN CONTENT ---
+# --- 8. MAIN CONTENT ---
 st.title(f"🧱 {app_mode}")
 
 if st.session_state.xml_data is None:
-    st.info("Please upload your 'store.xml' to start.")
-    uploaded_xml = st.file_uploader("Upload store.xml:", type="xml")
+    uploaded_xml = st.file_uploader("Upload store.xml to Audit or Train:", type="xml")
     if uploaded_xml:
         st.session_state.xml_data = uploaded_xml.getvalue()
         st.rerun()
     st.stop()
 
-# --- 8. AUDIT ENGINE ---
+# --- 9. THE AUDIT & TRAINING ENGINE ---
 try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
-    # container_stats[NormalizedID][HoleNumber] = {qty, conds}
-    container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set()}))
+    container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
+    all_found_colors = set()
 
     for item in items:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             rem = rem_node.text.strip()
-            # Group 1=Prefix, Group 2=ID, Group 3=Holes
             m = re.search(r'^([A-Za-z]*)\s*(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', rem)
             if m:
                 pref, num, h_raw = m.groups()
                 norm_id = get_clean_id(pref or "", num)
                 cond = (item.find("CONDITION").text or "U").upper()
                 qty = int(item.find("QTY").text or 0)
+                cid = item.find("COLOR").text
+                all_found_colors.add(cid)
+                
                 h_set = parse_holes(h_raw)
                 for h in h_set:
                     container_stats[norm_id][h]["qty"] += qty
                     container_stats[norm_id][h]["conds"].add(cond)
+                    container_stats[norm_id][h]["color_ids"].add(cid)
+
+    # --- 🧠 TRAINING ZONE ---
+    unknowns = [c for c in all_found_colors if c not in st.session_state.color_map]
+    if unknowns:
+        st.markdown(f"<div class='trainer-zone'><h3>🧠 Training Mode: {len(unknowns)} New Colors Found</h3>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1,2,1])
+        target = unknowns[0]
+        with col1: st.metric("BrickLink Code", target)
+        with col2: color_name = st.text_input(f"Name for code {target}:", placeholder="e.g. Dark Bluish Gray")
+        with col3: 
+            st.write("") # Spacer
+            if st.button("✅ LEARN"):
+                if color_name:
+                    st.session_state.color_map[target] = color_name
+                    save_registry(st.session_state.color_map)
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if app_mode == "Gap Auditor":
-        categories = st.session_state.temp_categories
-        tab_list = st.tabs([c['name'] for c in categories])
-        
-        for idx in range(len(categories)):
-            with tab_list[idx]:
-                # STRICT PREFIX VALIDATION
-                curr_cat = categories[idx]
-                curr_prefix = str(curr_cat['prefix']).upper().strip()
-                curr_cap = int(curr_cat['cap'])
-                
-                st.markdown(f"<div class='cat-header'>{curr_cat['name']}</div>", unsafe_allow_html=True)
+        tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
+        for idx, cat in enumerate(st.session_state.temp_categories):
+            with tabs[idx]:
+                curr_prefix, curr_cap = str(cat['prefix']).upper().strip(), int(cat['cap'])
+                st.markdown(f"<div class='cat-header'>{cat['name']}</div>", unsafe_allow_html=True)
                 
                 match_count = 0
-                for n in range(int(curr_cat['start']), int(curr_cat['end']) + 1):
-                    # Generate search key (e.g., 'B1')
-                    target_id = get_clean_id(curr_prefix, n)
-                    
-                    # Look up data only for this specific ID
-                    unit_data = container_stats.get(target_id, {})
-                    
+                for n in range(int(cat['start']), int(cat['end']) + 1):
+                    unit_id = get_clean_id(curr_prefix, n)
+                    unit_data = container_stats.get(unit_id, {})
                     unit_matches = {}
                     for h in range(1, curr_cap + 1):
-                        h_info = unit_data.get(h, {"qty": 0, "conds": set()})
+                        h_info = unit_data.get(h, {"qty": 0, "conds": set(), "color_ids": set()})
                         q = h_info["qty"]
-                        
-                        # Determine purity
-                        if not h_info["conds"]: p_state = "EMPTY"
-                        elif len(h_info["conds"]) > 1: p_state = "MIXED"
-                        else: p_state = "NEW" if "N" in h_info["conds"] else "USED"
-                        
-                        # Filter Logic
+                        p_state = "EMPTY" if not h_info["conds"] else "NEW" if "N" in h_info["conds"] else "USED"
                         if q <= qty_threshold:
                             if purity_filter == "Show All" or purity_filter.upper().startswith(p_state):
-                                unit_matches[h] = {"qty": q, "purity": p_state}
+                                unit_matches[h] = {"qty": q, "purity": p_state, "cids": h_info["color_ids"]}
                     
                     if unit_matches:
                         match_count += 1
-                        # Build Clean Display ID (No NONE, No Unit)
                         display_id = f"{curr_prefix}{n:03d}" if curr_prefix else f"{n}"
-                        
                         with st.expander(f"{display_id} — {len(unit_matches)} gaps"):
                             if curr_cap > 1:
                                 grid = "<div>"
                                 for h in range(1, curr_cap + 1):
-                                    if h in unit_matches:
-                                        s_cls = "hole-empty" if unit_matches[h]['qty'] == 0 else "hole-low"
-                                        grid += f'<div class="hole-box {s_cls}">{h}</div>'
-                                    else:
-                                        grid += f'<div class="hole-box hole-filled">X</div>'
+                                    s_cls = "hole-empty" if h in unit_matches and unit_matches[h]['qty'] == 0 else "hole-low" if h in unit_matches else "hole-filled"
+                                    grid += f'<div class="hole-box {s_cls}">{h if h in unit_matches else "X"}</div>'
                                     if h % 10 == 0: grid += "<br>"
                                 st.markdown(grid + "</div>", unsafe_allow_html=True)
-                            else:
-                                m = unit_matches[1]
-                                st.write(f"Qty: **{m['qty']}** | Condition: **{m['purity']}**")
-                
-                if match_count == 0:
-                    st.warning(f"No storage gaps found for {curr_cat['name']}.")
-
-    elif app_mode == "Condition Guard":
-        conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts:
-            st.success("✅ Condition Purity: All containers are consistent.")
-        else:
-            for c in sorted(conflicts):
-                with st.expander(f"🔴 Conflict: {c}"):
-                    st.write("Mixed condition stock detected.")
+                            
+                            for h_num, m_data in unit_matches.items():
+                                if m_data['cids']:
+                                    names = [st.session_state.color_map.get(cid, f"Code {cid}") for cid in m_data['cids']]
+                                    st.markdown(f"📍 **Slot {h_num}:** {', '.join(names)}")
 
 except Exception as e:
-    st.error(f"Audit Error: {e}")
+    st.error(f"Error: {e}")
 
-if st.button("🔄 Clear and Restart"):
+if st.button("🔄 Clear Upload"):
     st.session_state.xml_data = None
     st.rerun()
