@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "3.6.0 - THE SIDEBAR ANCHOR"
+VERSION = "3.7.0 - THE CLEANUP"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -27,7 +27,7 @@ def get_seller_defaults():
         {"name": "Filing Cabinet (FC)", "prefix": "FC", "start": 1, "end": 2, "cap": 25}
     ]
 
-# --- 3. SESSION STATE INITIALIZATION (RUNS FIRST) ---
+# --- 3. SESSION STATE INITIALIZATION ---
 if 'temp_categories' not in st.session_state:
     st.session_state.temp_categories = get_seller_defaults()
 if 'xml_data' not in st.session_state:
@@ -61,7 +61,6 @@ purity_filter = st.sidebar.selectbox("Condition Filter", ["Show All", "Empty Onl
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
 
-# Dynamic generation of sidebar fields (The "Safety Net" ensures this is always here)
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"lab_{i}")
@@ -122,7 +121,6 @@ try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
-    # container_stats[ID][Hole] = {qty, conds}
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set()}))
     container_contents = defaultdict(list)
 
@@ -130,7 +128,6 @@ try:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             rem = rem_node.text.strip()
-            # Regex to pull Prefix, ID, and Holes
             m = re.search(r'^([A-Za-z]*)\s*(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', rem)
             if m:
                 pref, num, h_raw = m.groups()
@@ -149,43 +146,43 @@ try:
                 })
 
     if app_mode == "Gap Auditor":
-        # We define tabs based on the storage layout
         tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
         
         for idx, cat in enumerate(st.session_state.temp_categories):
             with tabs[idx]:
-                # Force local variables for this specific tab to prevent leakage
                 local_prefix = str(cat['prefix'])
                 local_cap = int(cat['cap'])
                 
-                st.markdown(f"<div class='cat-title'>{cat['name']} (Prefix: {local_prefix})</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='cat-title'>{cat['name']}</div>", unsafe_allow_html=True)
                 
                 match_count = 0
-                # Iterate through physical storage range
                 for n in range(int(cat['start']), int(cat['end']) + 1):
                     unit_id = normalize_id(local_prefix, n)
                     unit_data = container_stats.get(unit_id, {})
                     
-                    # Check each hole in this unit
                     unit_matches = {}
                     for h in range(1, local_cap + 1):
                         h_info = unit_data.get(h, {"qty": 0, "conds": set()})
                         q = h_info["qty"]
                         
-                        # Calculate purity
                         if not h_info["conds"]: purity = "EMPTY"
                         elif len(h_info["conds"]) > 1: purity = "MIXED"
                         else: purity = "NEW" if "N" in h_info["conds"] else "USED"
                         
-                        # Logic: Does it match user filters?
                         if q <= qty_threshold:
                             if purity_filter == "Show All" or purity_filter.upper().startswith(purity):
                                 unit_matches[h] = {"qty": q, "purity": purity}
                     
                     if unit_matches:
                         match_count += 1
-                        display_name = f"{local_prefix}{n}" if local_prefix == "NONE" else f"{local_prefix}{n:03d}"
-                        with st.expander(f"Unit {display_name} — {len(unit_matches)} gaps"):
+                        # CLEAN LABEL LOGIC: No "NONE" and No "Unit"
+                        display_prefix = "" if local_prefix.upper() == "NONE" else local_prefix
+                        if local_prefix.upper() == "NONE":
+                            display_name = f"{n}"
+                        else:
+                            display_name = f"{display_prefix}{n:03d}"
+                        
+                        with st.expander(f"{display_name} — {len(unit_matches)} gaps"):
                             if local_cap > 1:
                                 grid = "<div>"
                                 for h in range(1, local_cap + 1):
@@ -204,7 +201,6 @@ try:
                     st.warning("No storage locations in this category match your search filters.")
 
     elif app_mode == "Condition Guard":
-        # Find containers where any hole has mixed N/U
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
         if not conflicts:
             st.success("✅ Condition Purity: All storage containers are consistent.")
