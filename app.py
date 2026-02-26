@@ -8,18 +8,20 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.2.1 - THE WIDGET FIX"
+VERSION = "5.4.0 - THE PHOTO WALL"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
 
-# --- 2. MEMORY ENGINE ---
+# --- 2. MEMORY & ASSETS ---
 REGISTRY_FILE = "color_registry.json"
 PROFILE_DIR = "lego_profiles"
+IMAGE_DIR = "color_images"
 
-if not os.path.exists(PROFILE_DIR):
-    try: os.makedirs(PROFILE_DIR)
-    except: pass
+for d in [PROFILE_DIR, IMAGE_DIR]:
+    if not os.path.exists(d):
+        try: os.makedirs(d)
+        except: pass
 
 def load_registry():
     if os.path.exists(REGISTRY_FILE):
@@ -47,19 +49,6 @@ def load_parts_catalog():
 
 CATALOG_LOOKUP = load_parts_catalog()
 
-def get_seller_defaults():
-    return [
-        {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
-        {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30},
-        {"name": "Cases (C)", "prefix": "C", "start": 1, "end": 180, "cap": 18},
-        {"name": "Multi Drawers (D)", "prefix": "D", "start": 1, "end": 38, "cap": 24},
-        {"name": "Filing Cabinet (FC)", "prefix": "FC", "start": 1, "end": 2, "cap": 25}
-    ]
-
-def get_profile_list():
-    files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
-    return sorted(files) if files else ["Default"]
-
 # --- 3. SESSION STATE ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
@@ -69,13 +58,14 @@ if 'temp_categories' not in st.session_state:
         with open(path, "r") as f:
             st.session_state.temp_categories = json.load(f)
     else:
-        st.session_state.temp_categories = get_seller_defaults()
+        st.session_state.temp_categories = [
+            {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
+            {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30}
+        ]
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
 if 'clue_index' not in st.session_state:
     st.session_state.clue_index = 0
-
-# Fix for the "cannot be modified" error
 if 'reset_key' not in st.session_state:
     st.session_state.reset_key = 0
 
@@ -89,29 +79,33 @@ st.markdown("""
     <style>
     .trainer-card { background-color: #1e1b4b; padding: 25px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 20px; }
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; }
+    .progress-text { font-family: monospace; color: #10b981; font-weight: bold; font-size: 1.1rem; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .hole-box { display: inline-block; width: 30px; height: 30px; margin: 2px; border-radius: 4px; text-align: center; font-size: 10px; line-height: 30px; font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.1); }
     .hole-empty { background-color: #10b981; }
     .hole-low { background-color: #f59e0b; }
     .hole-filled { background-color: #ef4444; opacity: 0.15; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
+    .color-swatch-box { border: 1px solid #334155; border-radius: 8px; padding: 5px; text-align: center; background: #0f172a; margin-bottom: 10px; }
+    .swatch-label { font-size: 0.65rem; color: #94a3b8; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .swatch-id { font-weight: bold; font-size: 0.8rem; color: #3b82f6; }
+    .missing-photo { height: 60px; background: #334155; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 0.7rem; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. SIDEBAR (ANCHORED) ---
+# --- 5. SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
-
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard", "Color Registry"])
 
-st.sidebar.markdown("---")
 if app_mode in ["Gap Auditor", "Condition Guard"]:
+    st.sidebar.markdown("---")
     st.sidebar.subheader("🔍 Audit Filters")
     qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0)
     purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
-    st.sidebar.markdown("---")
 
-st.sidebar.subheader("📂 Profile Commander")
+st.sidebar.markdown("---")
+st.sidebar.subheader("📂 Profiles")
 profiles = get_profile_list()
 selected_p = st.sidebar.selectbox("Load Profile", profiles, index=profiles.index(st.session_state.active_profile) if st.session_state.active_profile in profiles else 0)
 
@@ -199,9 +193,7 @@ try:
                 p_id = item.find("ITEMID").text
                 p_name = CATALOG_LOOKUP.get(p_id, "Unknown Part")
                 
-                container_contents[norm_id].append({
-                    "id": p_id, "name": p_name, "cid": cid, "cond": cond, "qty": qty, "h": h_raw or "1"
-                })
+                container_contents[norm_id].append({"id": p_id, "name": p_name, "cid": cid, "cond": cond, "qty": qty, "h": h_raw or "1"})
                 
                 h_set = parse_holes(h_raw)
                 for h in h_set:
@@ -209,41 +201,41 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # Clue Processing
+    # Pure Clue Logic
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
             if len(stats['color_ids']) == 1:
                 target_cid = list(stats['color_ids'])[0]
                 for content in container_contents[loc_id]:
                     if content['h'] == str(hole_num) or (content['h'] == "1" and hole_num == 1):
-                        clue_str = f"<b>{content['name']}</b> @ 📍 <b>{loc_id}{' (Hole '+str(hole_num)+')' if hole_num > 1 else ''}</b>"
+                        clue_str = f"<b>{content['name']}</b> @ 📍 <b>{loc_id}{' ('+str(hole_num)+')' if hole_num > 1 else ''}</b>"
                         if clue_str not in pure_clues_map[target_cid]:
                             pure_clues_map[target_cid].append(clue_str)
 
     # --- MODE: COLOR REGISTRY ---
     if app_mode == "Color Registry":
-        unknowns = [c for c in pure_clues_map.keys() if c not in st.session_state.color_map]
+        all_xml_cids = set(pure_clues_map.keys())
+        unknowns = [c for c in all_xml_cids if c not in st.session_state.color_map]
         
+        # 1. Discovery Zone
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
-            st.subheader("🔍 Unknown Color Discovery")
+            st.subheader("🔍 Discovery Zone")
             target_cid = unknowns[0]
             clues = pure_clues_map[target_cid]
             if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
-            
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
                 st.metric("Found ID", target_cid)
-                if st.button("⏭️ NEXT CLUE"):
+                if st.button("⏭️ NEXT PURE CLUE"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with col2:
-                # Key changes based on st.session_state.reset_key to force reset
-                train_name = st.text_input(f"Name Color {target_cid}:", key=f"train_box_{st.session_state.reset_key}")
-                st.markdown(f"<div class='clue-box'><b>Unique GPS Clue:</b><br>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
+                train_name = st.text_input(f"Name Color {target_cid}:", key=f"t_{st.session_state.reset_key}")
+                st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             with col3:
                 st.write("")
-                if st.button("💾 SAVE TO REGISTRY"):
+                if st.button("💾 SAVE NAME", use_container_width=True):
                     if train_name:
                         st.session_state.color_map[target_cid] = train_name
                         save_registry(st.session_state.color_map)
@@ -252,74 +244,70 @@ try:
                         st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        col_left, col_right = st.columns([1, 1])
-        with col_left:
-            st.subheader("➕ Manual Addition")
-            m_id = st.text_input("Color ID #", key=f"man_id_{st.session_state.reset_key}")
-            m_name = st.text_input("Name", key=f"man_name_{st.session_state.reset_key}")
+        # 2. Master Photo Wall (The Grid)
+        st.subheader("🖼️ The Photo Wall")
+        if st.session_state.color_map:
+            cols = st.columns(10)
+            sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x))
+            for i, cid in enumerate(sorted_cids):
+                with cols[i % 10]:
+                    try: padded_id = f"{int(cid):03d}"
+                    except: padded_id = cid
+                    img_path = os.path.join(IMAGE_DIR, f"{padded_id}.jpg")
+                    st.markdown(f"<div class='color-swatch-box'><div class='swatch-id'>{cid}</div>", unsafe_allow_html=True)
+                    if os.path.exists(img_path): st.image(img_path, use_container_width=True)
+                    else: st.markdown("<div class='missing-photo'>MISSING</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='swatch-label'>{st.session_state.color_map[cid]}</div></div>", unsafe_allow_html=True)
+        else: st.info("Registry is empty. Start training colors to build your wall!")
+
+        # 3. Manual Entry
+        with st.expander("⌨️ Manual Entry Tool"):
+            mcol1, mcol2 = st.columns(2)
+            mid = mcol1.text_input("ID #", key=f"mid_{st.session_state.reset_key}")
+            mname = mcol2.text_input("Name", key=f"mname_{st.session_state.reset_key}")
             if st.button("Add Now"):
-                if m_id and m_name:
-                    st.session_state.color_map[str(m_id)] = m_name
+                if mid and mname:
+                    st.session_state.color_map[str(mid)] = mname
                     save_registry(st.session_state.color_map)
                     trigger_reset()
                     st.rerun()
 
-        with col_right:
-            st.subheader("📋 Registry List")
-            if st.session_state.color_map:
-                reg_df = pd.DataFrame(list(st.session_state.color_map.items()), columns=["ID", "Name"])
-                st.dataframe(reg_df.sort_values(by="ID"), hide_index=True, use_container_width=True, height=300)
-
-    # --- MODE: GAP AUDITOR ---
+    # --- OTHER MODES (Restored) ---
     elif app_mode == "Gap Auditor":
         tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
         for idx, cat in enumerate(st.session_state.temp_categories):
             with tabs[idx]:
                 curr_prefix, curr_cap = str(cat['prefix']).upper().strip(), int(cat['cap'])
-                st.markdown(f"<div class='cat-header'>{cat['name']}</div>", unsafe_allow_html=True)
-                match_count = 0
+                st.markdown(f"### {cat['name']}")
                 for n in range(int(cat['start']), int(cat['end']) + 1):
-                    unit_id = get_clean_id(curr_prefix, n)
-                    unit_data = container_stats.get(unit_id, {})
-                    unit_matches = {}
+                    uid = get_clean_id(curr_prefix, n)
+                    udata = container_stats.get(uid, {})
+                    umatches = {}
                     for h in range(1, curr_cap + 1):
-                        h_info = unit_data.get(h, {"qty": 0, "conds": set(), "color_ids": set()})
-                        q = h_info["qty"]
-                        p_state = "EMPTY" if not h_info["conds"] else "NEW" if "N" in h_info["conds"] else "USED"
-                        if q <= qty_threshold:
+                        hinfo = udata.get(h, {"qty": 0, "conds": set(), "color_ids": set()})
+                        if hinfo["qty"] <= qty_threshold:
+                            p_state = "EMPTY" if not hinfo["conds"] else "NEW" if "N" in hinfo["conds"] else "USED"
                             if purity_filter == "Show All" or purity_filter.upper().startswith(p_state):
-                                unit_matches[h] = {"qty": q, "purity": p_state, "cids": h_info["color_ids"]}
-                    if unit_matches:
-                        match_count += 1
-                        display_id = f"{curr_prefix}{n:03d}" if curr_prefix else f"{n}"
-                        with st.expander(f"{display_id} — {len(unit_matches)} gaps"):
-                            if curr_cap > 1:
-                                grid = "<div>"
-                                for h in range(1, curr_cap + 1):
-                                    s_cls = "hole-empty" if h in unit_matches and unit_matches[h]['qty'] == 0 else "hole-low" if h in unit_matches else "hole-filled"
-                                    grid += f'<div class="hole-box {s_cls}">{h if h in unit_matches else "X"}</div>'
-                                    if h % 10 == 0: grid += "<br>"
-                                st.markdown(grid + "</div>", unsafe_allow_html=True)
-                            for h_num, m_data in unit_matches.items():
-                                if m_data['cids']:
-                                    names = [st.session_state.color_map.get(cid, f"Code {cid}") for cid in m_data['cids']]
-                                    st.markdown(f"📍 **Slot {h_num}:** {', '.join(names)}")
+                                umatches[h] = {"qty": hinfo["qty"], "cids": hinfo["color_ids"]}
+                    if umatches:
+                        with st.expander(f"{curr_prefix}{n:03d} — {len(umatches)} gaps"):
+                            for h_n, m_d in umatches.items():
+                                names = [st.session_state.color_map.get(cid, f"Code {cid}") for cid in m_d['cids']]
+                                st.write(f"📍 Slot {h_n}: {', '.join(names)}")
 
-    # --- MODE: CONDITION GUARD ---
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
         if not conflicts: st.success("✅ Consistent.")
         else:
             for c_id in sorted(conflicts):
-                with st.expander(f"🔴 Conflict in {c_id}"):
+                with st.expander(f"🔴 Conflict: {c_id}"):
                     for row in container_contents[c_id]:
                         c_name = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
-                        st.write(f"**{row['qty']}x** {row['name']} — {c_name} (**{row['cond']}**) @ Hole {row['h']}")
+                        st.write(f"**{row['qty']}x** {row['name']} ({row['cond']})")
 
 except Exception as e:
     st.error(f"Error: {e}")
 
-if st.button("🔄 Clear and Restart"):
+if st.button("🔄 Clear Upload"):
     st.session_state.xml_data = None
-    st.session_state.clue_index = 0
     st.rerun()
