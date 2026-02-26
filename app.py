@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.6.2 - SWATCH AUDITOR EDITION"
+VERSION = "5.6.3 - SQUARE UNIFORM SWATCHES"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -81,7 +81,32 @@ st.markdown("""
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
-    .missing-img { color: #f87171; font-weight: bold; font-size: 0.8rem; border: 1px dashed #f87171; padding: 5px; text-align: center; border-radius: 5px; margin-bottom: 5px; }
+    
+    /* Square Placeholder Logic */
+    .img-container {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        background-color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 4px;
+        margin-bottom: 5px;
+        border: 1px solid #333;
+    }
+    .img-container img {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+    }
+    .missing-box {
+        color: #f87171;
+        font-weight: bold;
+        font-size: 0.65rem;
+        text-align: center;
+        padding: 5px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -253,21 +278,25 @@ try:
         st.subheader("🎨 Swatch Gallery & Image Audit")
         if st.session_state.color_map:
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
-            cols = st.columns(8) 
+            
+            # Use 12 columns to make images ~30% smaller than the previous 8-column layout
+            cols = st.columns(12) 
             for i, cid in enumerate(sorted_cids):
-                with cols[i % 8]:
+                with cols[i % 12]:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
+                    # [cite_start]Wrap image or missing text in a square CSS container [cite: 1]
+                    st.markdown("<div class='img-container'>", unsafe_allow_html=True)
                     if os.path.exists(img_path):
-                        st.image(img_path, use_container_width=True)
-                        st.caption(f"✅ {padded}.png")
+                        st.image(img_path)
                     else:
-                        st.markdown(f"<div class='missing-img'>📷 MISSING<br>{padded}.png</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='missing-box'>MISSING<br>{padded}.png</div>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
                     
-                    st.markdown(f"**{st.session_state.color_map[cid]}**")
-                    st.code(f"ID: {cid}", language=None)
+                    st.markdown(f"<p style='font-size:0.75rem; font-weight:bold; margin-bottom:0;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
+                    st.caption(f"ID: {cid}")
 
     # --- MODE: GAP AUDITOR ---
     elif app_mode == "Gap Auditor":
