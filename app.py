@@ -8,12 +8,12 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "4.9.0 - THE MASTER BUILD"
+VERSION = "4.9.1 - PROACTIVE TRAINER"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
 
-# --- 2. MEMORY ENGINE (Color & Profiles) ---
+# --- 2. MEMORY ENGINE ---
 REGISTRY_FILE = "color_registry.json"
 PROFILE_DIR = "lego_profiles"
 
@@ -33,6 +33,21 @@ def save_registry(data):
     with open(REGISTRY_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
+if 'color_map' not in st.session_state:
+    st.session_state.color_map = load_registry()
+
+@st.cache_data
+def load_parts_catalog():
+    if os.path.exists("Parts.txt"):
+        try:
+            df = pd.read_csv("Parts.txt", sep='\t', encoding='latin1')
+            return dict(zip(df.iloc[:, 2].astype(str), df.iloc[:, 3]))
+        except: return {}
+    return {}
+
+CATALOG_LOOKUP = load_parts_catalog()
+
+# --- 3. STORAGE DEFAULTS ---
 def get_seller_defaults():
     return [
         {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
@@ -46,9 +61,7 @@ def get_profile_list():
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
     return sorted(files) if files else ["Default"]
 
-# --- 3. SESSION STATE ---
-if 'color_map' not in st.session_state:
-    st.session_state.color_map = load_registry()
+# --- 4. SESSION STATE ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
 if 'temp_categories' not in st.session_state:
@@ -63,18 +76,7 @@ if 'xml_data' not in st.session_state:
 if 'clue_index' not in st.session_state:
     st.session_state.clue_index = 0
 
-@st.cache_data
-def load_parts_catalog():
-    if os.path.exists("Parts.txt"):
-        try:
-            df = pd.read_csv("Parts.txt", sep='\t', encoding='latin1')
-            return dict(zip(df.iloc[:, 2].astype(str), df.iloc[:, 3]))
-        except: return {}
-    return {}
-
-CATALOG_LOOKUP = load_parts_catalog()
-
-# --- 4. PAGE STYLE ---
+# --- 5. PAGE STYLE ---
 st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide")
 
 st.markdown("""
@@ -90,11 +92,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. SIDEBAR (RESTORED & ANCHORED) ---
+# --- 6. SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
-# A. Filters
 st.sidebar.subheader("🔍 Search Filters")
 qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0)
 purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
@@ -135,10 +136,6 @@ with col_s2:
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
-if st.sidebar.button("➕ Add New Storage Section"):
-    st.session_state.temp_categories.append({"name": "New", "prefix": "X", "start": 1, "end": 10, "cap": 1})
-    st.rerun()
-
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"lab_{i}")
@@ -146,11 +143,8 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sta_{i}")
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"end_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"cap_{i}")
-        if st.button("🗑️ Remove Section", key=f"rem_{i}"):
-            st.session_state.temp_categories.pop(i)
-            st.rerun()
 
-# --- 6. CORE LOGIC ---
+# --- 7. CORE LOGIC ---
 def get_clean_id(prefix, number):
     try:
         n = str(int(number))
@@ -174,7 +168,7 @@ def parse_holes(expr):
             except: continue
     return holes if holes else {1}
 
-# --- 7. MAIN CONTENT ---
+# --- 8. MAIN CONTENT ---
 st.title(f"🧱 {app_mode}")
 
 if st.session_state.xml_data is None:
@@ -184,7 +178,7 @@ if st.session_state.xml_data is None:
         st.rerun()
     st.stop()
 
-# --- 8. THE ENGINE ---
+# --- 9. THE ENGINE ---
 try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
@@ -223,30 +217,52 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # --- 🧠 TRAINING ZONE ---
+    # --- 🧠 THE ENHANCED TRAINING CENTER ---
     unknowns = [c for c in color_clues_map.keys() if c not in st.session_state.color_map]
-    if unknowns:
-        st.markdown(f"<div class='trainer-zone'><h3>🧠 Color Training: {len(unknowns)} Unknowns</h3>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        target_cid = unknowns[0]
-        available_clues = color_clues_map[target_cid]
-        if st.session_state.clue_index >= len(available_clues): st.session_state.clue_index = 0
-        current_clue = available_clues[st.session_state.clue_index]
-        with col1: 
-            st.metric("Code", target_cid)
-            if st.button("⏭️ NEXT CLUE", use_container_width=True):
-                st.session_state.clue_index = (st.session_state.clue_index + 1) % len(available_clues)
-                st.rerun()
-        with col2: 
-            color_name = st.text_input(f"Name Color {target_cid}:", key=f"inp_{target_cid}")
-            st.markdown(f"<div class='clue-text'>🔍 CLUE {st.session_state.clue_index + 1}/{len(available_clues)}:<br>{current_clue}</div>", unsafe_allow_html=True)
-        with col3: 
-            st.write("") 
-            if st.button("✅ SAVE", use_container_width=True):
-                if color_name:
-                    st.session_state.color_map[target_cid] = color_name
+    
+    with st.container():
+        st.markdown("<div class='trainer-zone'>", unsafe_allow_html=True)
+        st.subheader("🧠 Color Training Center")
+        
+        # ROW 1: AI-LED (Clue Based)
+        if unknowns:
+            st.markdown("##### 🔍 Clue-Based Training (Identify Unknowns)")
+            col1, col2, col3 = st.columns([1, 2, 1])
+            target_cid = unknowns[0]
+            available_clues = color_clues_map[target_cid]
+            if st.session_state.clue_index >= len(available_clues): st.session_state.clue_index = 0
+            current_clue = available_clues[st.session_state.clue_index]
+            
+            with col1: 
+                st.metric("Code Found", target_cid)
+                if st.button("⏭️ NEXT CLUE", key="skip_btn", use_container_width=True):
+                    st.session_state.clue_index = (st.session_state.clue_index + 1) % len(available_clues)
+                    st.rerun()
+            with col2: 
+                clue_color_name = st.text_input(f"Name Color {target_cid}:", key="clue_inp")
+                st.markdown(f"<div class='clue-text'>{current_clue}</div>", unsafe_allow_html=True)
+            with col3: 
+                st.write("") 
+                if st.button("✅ LEARN FROM CLUE", key="learn_clue", use_container_width=True):
+                    if clue_color_name:
+                        st.session_state.color_map[target_cid] = clue_color_name
+                        save_registry(st.session_state.color_map)
+                        st.session_state.clue_index = 0
+                        st.rerun()
+            st.markdown("---")
+        
+        # ROW 2: PROACTIVE (Manual Entry)
+        st.markdown("##### ⌨️ Proactive Entry (Add known codes manually)")
+        mcol1, mcol2, mcol3 = st.columns([1, 2, 1])
+        with mcol1: manual_cid = st.text_input("Color ID #", placeholder="e.g. 15", key="man_id")
+        with mcol2: manual_name = st.text_input("Name", placeholder="e.g. White", key="man_name")
+        with mcol3:
+            st.write("")
+            if st.button("➕ ADD MANUALLY", key="add_man", use_container_width=True):
+                if manual_cid and manual_name:
+                    st.session_state.color_map[str(manual_cid)] = manual_name
                     save_registry(st.session_state.color_map)
-                    st.session_state.clue_index = 0
+                    st.success(f"Added {manual_name}!")
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
