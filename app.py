@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.5.0 - THE SWATCH GALLERY"
+VERSION = "5.5.1 - THE CLEAN SWATCH"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -84,28 +84,19 @@ st.markdown("""
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     
-    /* Swatch Gallery Styling */
-    .swatch-item { border: 1px solid #334155; border-radius: 6px; padding: 8px; text-align: center; background: #0f172a; margin-bottom: 12px; height: 130px; }
-    .swatch-img-container { width: 60px; height: 60px; margin: 0 auto; overflow: hidden; border-radius: 4px; border: 1px solid #1e293b; background: #1e293b; }
-    .swatch-img-container img { width: 100%; height: 100%; object-fit: cover; }
-    .swatch-missing { width: 60px; height: 60px; margin: 0 auto; background: #1e293b; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 0.5rem; border: 1px dashed #334155; }
-    .swatch-text { font-size: 0.7rem; color: #cbd5e1; margin-top: 8px; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .swatch-item { border: 1px solid #334155; border-radius: 6px; padding: 8px; text-align: center; background: #0f172a; margin-bottom: 12px; min-height: 140px; }
+    .swatch-missing { height: 80px; background: #1e293b; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 0.55rem; border: 1px dashed #334155; margin-bottom: 8px; }
+    .swatch-text { font-size: 0.7rem; color: #cbd5e1; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. THE SIDEBAR (LOCKED GLOBAL) ---
+# --- 5. THE SIDEBAR (PERMANENT TOP PRIORITY) ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard", "Color Registry"])
 
 st.sidebar.markdown("---")
-if app_mode in ["Gap Auditor", "Condition Guard"]:
-    st.sidebar.subheader("🔍 Search Filters")
-    qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0)
-    purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
-    st.sidebar.markdown("---")
-
 st.sidebar.subheader("📂 Profile Commander")
 def get_profile_list():
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
@@ -122,7 +113,7 @@ if selected_p != st.session_state.active_profile:
             st.session_state.temp_categories = json.load(f)
     st.rerun()
 
-new_p_name = st.sidebar.text_input("New Profile Name", value=st.session_state.active_profile)
+new_p_name = st.sidebar.text_input("Profile Name", value=st.session_state.active_profile)
 if st.sidebar.button("💾 SAVE PROFILE"):
     path = os.path.join(PROFILE_DIR, f"{new_p_name}.json")
     with open(path, "w") as f:
@@ -140,6 +131,13 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sidebar_sta_{i}")
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"sidebar_end_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"sidebar_cap_{i}")
+
+# Filter controls for Auditor modes
+if app_mode in ["Gap Auditor", "Condition Guard"]:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔍 Search Filters")
+    qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0)
+    purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
 
 # --- 6. CORE LOGIC HELPERS ---
 def get_clean_id(prefix, number):
@@ -206,7 +204,6 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # GPS Pure Clues
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
             if len(stats['color_ids']) == 1:
@@ -222,7 +219,6 @@ try:
         all_xml_cids = set(pure_clues_map.keys())
         unknowns = [c for c in all_xml_cids if c not in st.session_state.color_map]
         
-        # Discovery Zone
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Discovery Zone")
@@ -237,7 +233,7 @@ try:
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with col2:
-                train_name = st.text_input(f"Friendly Name for {target_cid}:", key=f"reg_train_{st.session_state.reset_key}")
+                train_name = st.text_input(f"Name for {target_cid}:", key=f"reg_train_{st.session_state.reset_key}")
                 st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             with col3:
                 st.write("")
@@ -250,7 +246,6 @@ try:
                         st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # Swatch Gallery (The Photo Wall)
         st.subheader("🎨 Swatch Gallery")
         if st.session_state.color_map:
             cols = st.columns(10)
@@ -263,11 +258,9 @@ try:
                     
                     st.markdown("<div class='swatch-item'>", unsafe_allow_html=True)
                     if os.path.exists(img_path):
-                        st.markdown(f"<div class='swatch-img-container'><img src='app/static/{IMAGE_DIR}/{padded}.jpg'></div>", unsafe_allow_html=True)
-                        # NOTE: If running locally with standard streamlit, we'll use st.image instead for reliability
                         st.image(img_path, use_container_width=True)
                     else:
-                        st.markdown("<div class='swatch-missing'>NO PHOTO</div>", unsafe_allow_html=True)
+                        st.markdown("<div class='swatch-missing'>MISSING<br>"+padded+".jpg</div>", unsafe_allow_html=True)
                     
                     st.markdown(f"<div class='swatch-text'>{st.session_state.color_map[cid]} ({cid})</div></div>", unsafe_allow_html=True)
 
