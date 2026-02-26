@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.5.5 - THE FINAL REFINEMENT"
+VERSION = "5.6.0 - THE BLOODY FINAL FIX"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -52,7 +52,6 @@ CATALOG_LOOKUP = load_parts_catalog()
 # --- 3. SESSION STATE ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
-
 if 'temp_categories' not in st.session_state:
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
@@ -63,7 +62,6 @@ if 'temp_categories' not in st.session_state:
             {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
             {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30}
         ]
-
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
 if 'clue_index' not in st.session_state:
@@ -83,30 +81,10 @@ st.markdown("""
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
-    
-    /* COMPACT SWATCH GRID */
-    .gallery-label {
-        font-size: 0.85rem !important;
-        font-weight: 700 !important;
-        color: #f8fafc !important;
-        text-align: center;
-        margin-top: 4px;
-        line-height: 1.1;
-        display: block;
-    }
-    .swatch-box-mini {
-        border: 1px solid #334155;
-        background: #0f172a;
-        padding: 10px;
-        border-radius: 8px;
-        text-align: center;
-        margin-bottom: 10px;
-        min-height: 130px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. THE SIDEBAR (PERMANENT TOP PRIORITY) ---
+# --- 5. THE SIDEBAR (STABLE ANCHOR) ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
@@ -234,7 +212,7 @@ try:
         all_xml_cids = set(pure_clues_map.keys())
         unknowns = [c for c in all_xml_cids if c not in st.session_state.color_map]
         
-        # Discovery Zone
+        # 1. Discovery Zone
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Discovery Zone")
@@ -264,6 +242,7 @@ try:
 
         st.subheader("🎨 Swatch Gallery")
         if st.session_state.color_map:
+            # PURE STREAMLIT GRID - NO HTML BOXES
             cols = st.columns(10) 
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             for i, cid in enumerate(sorted_cids):
@@ -272,13 +251,14 @@ try:
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
-                    st.markdown("<div class='swatch-box-mini'>", unsafe_allow_html=True)
+                    # Native st.image call - small width, no black box
                     if os.path.exists(img_path):
-                        st.image(img_path, use_container_width=False, width=60)
+                        st.image(img_path, width=60)
                     else:
-                        st.caption(f"{padded}.png")
+                        st.caption(f"No {padded}.png")
                     
-                    st.markdown(f"<div class='gallery-label'>{st.session_state.color_map[cid]} ({cid})</div></div>", unsafe_allow_html=True)
+                    # Large Bold Text Label
+                    st.markdown(f"**{st.session_state.color_map[cid]} ({cid})**")
 
         with st.expander("⌨️ Manual Registry Entry"):
             m1, m2 = st.columns(2)
