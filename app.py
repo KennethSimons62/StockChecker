@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "4.1.0"
+VERSION = "4.4.0 - THE IRON CURTAIN"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -22,6 +22,7 @@ if not os.path.exists(PROFILE_DIR):
     except: pass
 
 def get_seller_defaults():
+    """Exact storage specs for Mr Brick UK."""
     return [
         {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
         {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30},
@@ -31,18 +32,22 @@ def get_seller_defaults():
     ]
 
 def get_profile_list():
+    if not os.path.exists(PROFILE_DIR): return ["Default"]
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
     return sorted(files) if files else ["Default"]
 
-# --- 3. SESSION STATE ---
+# --- 3. SESSION STATE INITIALIZATION ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
 
 if 'temp_categories' not in st.session_state:
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
-        with open(path, "r") as f:
-            st.session_state.temp_categories = json.load(f)
+        try:
+            with open(path, "r") as f:
+                st.session_state.temp_categories = json.load(f)
+        except:
+            st.session_state.temp_categories = get_seller_defaults()
     else:
         st.session_state.temp_categories = get_seller_defaults()
 
@@ -54,7 +59,7 @@ st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide")
 
 st.markdown("""
     <style>
-    .status-badge { background-color: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
+    .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .hole-box { display: inline-block; width: 30px; height: 30px; margin: 2px; border-radius: 4px; text-align: center; font-size: 10px; line-height: 30px; font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.1); }
     .hole-empty { background-color: #10b981; }
     .hole-low { background-color: #f59e0b; }
@@ -67,7 +72,7 @@ st.markdown("""
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
-# NEW: Filters moved to the top
+# Filters at Top
 st.sidebar.subheader("🔍 Search Filters")
 qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0, help="Find holes with <= this many parts.")
 purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
@@ -101,11 +106,6 @@ if st.sidebar.button("💾 SAVE PROFILE", use_container_width=True):
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
-
-if st.sidebar.button("➕ Add Category"):
-    st.session_state.temp_categories.append({"name": "New Section", "prefix": "X", "start": 1, "end": 10, "cap": 1})
-    st.rerun()
-
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"l_{i}")
@@ -113,12 +113,10 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['start'] = st.number_input("Start", value=int(cat['start']), key=f"s_{i}")
         st.session_state.temp_categories[i]['end'] = st.number_input("End", value=int(cat['end']), key=f"e_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes", value=int(cat['cap']), key=f"c_{i}")
-        if st.button("🗑️ Remove", key=f"rem_{i}"):
-            st.session_state.temp_categories.pop(i)
-            st.rerun()
 
 # --- 6. CORE LOGIC ---
 def get_clean_id(prefix, number):
+    """Normalizes 'B001' to 'B1' and handled blank prefixes."""
     try:
         n = str(int(number))
         p = prefix.upper().strip()
@@ -133,8 +131,8 @@ def parse_holes(expr):
         if not p: continue
         if '-' in p:
             try:
-                s, e = p.split('-')
-                holes.update(range(int(s), int(e) + 1))
+                pts = p.split('-')
+                holes.update(range(int(pts[0]), int(pts[1]) + 1))
             except: continue
         else:
             try: holes.add(int(p))
@@ -152,51 +150,48 @@ if st.session_state.xml_data is None:
         st.rerun()
     st.stop()
 
-if st.button("🔄 Clear Current Upload"):
-    st.session_state.xml_data = None
-    st.rerun()
-
 # --- 8. AUDIT ENGINE ---
 try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
+    # container_stats[NormalizedID][HoleNumber] = {qty, conds}
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set()}))
-    container_contents = defaultdict(list)
 
     for item in items:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             rem = rem_node.text.strip()
+            # Regex: Group 1=Prefix, Group 2=ID, Group 3=Holes
             m = re.search(r'^([A-Za-z]*)\s*(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', rem)
             if m:
                 pref, num, h_raw = m.groups()
                 norm_id = get_clean_id(pref or "", num)
-                
                 cond = (item.find("CONDITION").text or "U").upper()
                 qty = int(item.find("QTY").text or 0)
-                
                 h_set = parse_holes(h_raw)
                 for h in h_set:
                     container_stats[norm_id][h]["qty"] += qty
                     container_stats[norm_id][h]["conds"].add(cond)
-                
-                container_contents[norm_id].append({
-                    "id": item.find("ITEMID").text, "cond": cond, "qty": qty, "loc": h_raw or "Main"
-                })
 
     if app_mode == "Gap Auditor":
-        tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
+        categories = st.session_state.temp_categories
+        tab_list = st.tabs([c['name'] for c in categories])
         
-        for idx, cat in enumerate(st.session_state.temp_categories):
-            with tabs[idx]:
-                t_prefix = str(cat['prefix'])
-                t_cap = int(cat['cap'])
+        for idx in range(len(categories)):
+            with tab_list[idx]:
+                # IRON CURTAIN: Strictly bind variables to this specific tab's index
+                target_cat = categories[idx]
+                t_name = target_cat['name']
+                t_prefix = str(target_cat['prefix'])
+                t_cap = int(target_cat['cap'])
+                t_start = int(target_cat['start'])
+                t_end = int(target_cat['end'])
                 
-                st.markdown(f"<div class='cat-header'>{cat['name']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='cat-header'>{t_name}</div>", unsafe_allow_html=True)
                 
                 match_count = 0
-                for n in range(int(cat['start']), int(cat['end']) + 1):
+                for n in range(t_start, t_end + 1):
                     unit_id = get_clean_id(t_prefix, n)
                     unit_data = container_stats.get(unit_id, {})
                     
@@ -205,18 +200,25 @@ try:
                         h_info = unit_data.get(h, {"qty": 0, "conds": set()})
                         q = h_info["qty"]
                         
-                        if not h_info["conds"]: purity = "EMPTY"
-                        elif len(h_info["conds"]) > 1: purity = "MIXED"
-                        else: purity = "NEW" if "N" in h_info["conds"] else "USED"
+                        # Determine purity
+                        if not h_info["conds"]: p = "EMPTY"
+                        elif len(h_info["conds"]) > 1: p = "MIXED"
+                        else: p = "NEW" if "N" in h_info["conds"] else "USED"
                         
+                        # Apply User Filters
                         if q <= qty_threshold:
-                            if purity_filter == "Show All" or purity_filter.upper().startswith(purity):
-                                unit_matches[h] = {"qty": q, "purity": purity}
+                            if purity_filter == "Show All" or purity_filter.upper().startswith(p):
+                                unit_matches[h] = {"qty": q, "purity": p}
                     
                     if unit_matches:
                         match_count += 1
-                        disp_name = f"{t_prefix}{n:03d}" if t_prefix else f"{n}"
-                        with st.expander(f"{disp_name} — {len(unit_matches)} gaps"):
+                        # CLEAN LABEL LOGIC: Just the number or Prefix+Number
+                        if t_prefix == "":
+                            display_id = f"{n}"
+                        else:
+                            display_id = f"{t_prefix}{n:03d}"
+                        
+                        with st.expander(f"{display_id} — {len(unit_matches)} slots available"):
                             if t_cap > 1:
                                 grid = "<div>"
                                 for h in range(1, t_cap + 1):
@@ -230,19 +232,22 @@ try:
                             else:
                                 m = unit_matches[1]
                                 st.write(f"Qty: **{m['qty']}** | Condition: **{m['purity']}**")
-
+                
                 if match_count == 0:
-                    st.warning("No matches found.")
+                    st.warning(f"No matches found in {t_name} category.")
 
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
         if not conflicts:
-            st.success("✅ No mixed containers.")
+            st.success("✅ Condition Purity: All containers are consistent.")
         else:
             for c in sorted(conflicts):
                 with st.expander(f"🔴 Conflict: {c}"):
-                    for item in container_contents[c]:
-                        st.write(f"{item['qty']}x Part {item['id']} ({item['cond']}) @ Hole {item['loc']}")
+                    st.write("Mixed condition stock detected.")
 
 except Exception as e:
     st.error(f"Audit Error: {e}")
+
+if st.button("🔄 Clear and Restart"):
+    st.session_state.xml_data = None
+    st.rerun()
