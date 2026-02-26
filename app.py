@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.5.4 - THE BLOODY IMAGE FIX"
+VERSION = "5.5.5 - THE FINAL REFINEMENT"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -84,21 +84,24 @@ st.markdown("""
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     
-    /* BIG READABLE TEXT FOR GALLERY */
-    .swatch-label-big { 
-        font-size: 1.1rem !important; 
-        font-weight: 800 !important; 
-        color: #ffffff !important; 
+    /* COMPACT SWATCH GRID */
+    .gallery-label {
+        font-size: 0.85rem !important;
+        font-weight: 700 !important;
+        color: #f8fafc !important;
         text-align: center;
-        margin-top: 10px;
+        margin-top: 4px;
         line-height: 1.1;
+        display: block;
     }
-    .swatch-id-sub {
-        font-size: 0.85rem;
-        color: #3b82f6;
+    .swatch-box-mini {
+        border: 1px solid #334155;
+        background: #0f172a;
+        padding: 10px;
+        border-radius: 8px;
         text-align: center;
-        font-family: monospace;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
+        min-height: 130px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -241,7 +244,7 @@ try:
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
-                st.metric("ID", target_cid)
+                st.metric("ID Found", target_cid)
                 if st.button("⏭️ NEXT PURE CLUE"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
@@ -261,22 +264,21 @@ try:
 
         st.subheader("🎨 Swatch Gallery")
         if st.session_state.color_map:
-            cols = st.columns(6) # Even wider columns for max readability
+            cols = st.columns(10) 
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             for i, cid in enumerate(sorted_cids):
-                with cols[i % 6]:
+                with cols[i % 10]:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
-                    # THE FIX: No HTML wrappers around st.image
+                    st.markdown("<div class='swatch-box-mini'>", unsafe_allow_html=True)
                     if os.path.exists(img_path):
-                        st.image(img_path, use_container_width=True)
+                        st.image(img_path, use_container_width=False, width=60)
                     else:
-                        st.warning(f"MISSING: {padded}.png")
+                        st.caption(f"{padded}.png")
                     
-                    st.markdown(f"<div class='swatch-label-big'>{st.session_state.color_map[cid]}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='swatch-id-sub'>ID: {cid}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='gallery-label'>{st.session_state.color_map[cid]} ({cid})</div></div>", unsafe_allow_html=True)
 
         with st.expander("⌨️ Manual Registry Entry"):
             m1, m2 = st.columns(2)
@@ -295,7 +297,7 @@ try:
         for idx, cat in enumerate(st.session_state.temp_categories):
             with tabs[idx]:
                 pref, cap = str(cat['prefix']).upper().strip(), int(cat['cap'])
-                st.markdown(f"### {cat['name']}")
+                st.markdown(f"<div class='cat-header'>{cat['name']}</div>", unsafe_allow_html=True)
                 for n in range(int(cat['start']), int(cat['end']) + 1):
                     uid = get_clean_id(pref, n)
                     udata = container_stats.get(uid, {})
@@ -307,7 +309,7 @@ try:
                             if purity_filter == "Show All" or purity_filter.upper().startswith(p_st):
                                 umatches[h] = {"cids": hinfo["color_ids"]}
                     if umatches:
-                        with st.expander(f"{pref}{n:03d} — {len(umatches)} gaps"):
+                        with st.expander(f"{pref}{n:03d} — {len(umatches)} slots"):
                             for h_n, m_d in umatches.items():
                                 names = [st.session_state.color_map.get(cid, f"Code {cid}") + f" ({cid})" for cid in m_d['cids']]
                                 st.write(f"📍 Slot {h_n}: {', '.join(names)}")
