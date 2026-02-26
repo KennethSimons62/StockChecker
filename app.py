@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.4.1 - THE PERMANENT ANCHOR"
+VERSION = "5.4.2 - THE UNBREAKABLE SIDEBAR"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -82,18 +82,13 @@ st.markdown("""
     .trainer-card { background-color: #1e1b4b; padding: 25px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 20px; color: white; }
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
-    .hole-box { display: inline-block; width: 30px; height: 30px; margin: 2px; border-radius: 4px; text-align: center; font-size: 10px; line-height: 30px; font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.1); }
-    .hole-empty { background-color: #10b981; }
-    .hole-low { background-color: #f59e0b; }
-    .hole-filled { background-color: #ef4444; opacity: 0.15; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     .swatch-grid-card { border: 1px solid #334155; border-radius: 8px; padding: 5px; text-align: center; background: #0f172a; margin-bottom: 10px; }
-    .swatch-label { font-size: 0.6rem; color: #94a3b8; margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .missing-photo { height: 60px; background: #1e293b; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 0.6rem; border: 1px dashed #334155; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. SIDEBAR (PERMANENTLY ANCHORED) ---
+# --- 5. THE SIDEBAR (MANDATORY RENDER) ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
@@ -133,6 +128,10 @@ if st.sidebar.button("💾 SAVE CURRENT PROFILE"):
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
+if st.sidebar.button("➕ Add New Storage Section"):
+    st.session_state.temp_categories.append({"name": "New", "prefix": "X", "start": 1, "end": 10, "cap": 1})
+    st.rerun()
+
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"sidebar_lab_{i}")
@@ -140,8 +139,11 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sidebar_sta_{i}")
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"sidebar_end_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"sidebar_cap_{i}")
+        if st.button("🗑️ Remove Section", key=f"sidebar_rem_{i}"):
+            st.session_state.temp_categories.pop(i)
+            st.rerun()
 
-# --- 6. CORE LOGIC ---
+# --- 6. CORE LOGIC HELPERS ---
 def get_clean_id(prefix, number):
     try:
         n = str(int(number))
@@ -165,7 +167,7 @@ def parse_holes(expr):
             except: continue
     return holes if holes else {1}
 
-# --- 7. MAIN CONTENT ---
+# --- 7. MAIN CONTENT FLOW ---
 st.title(f"🧱 {app_mode}")
 
 if st.session_state.xml_data is None:
@@ -175,7 +177,7 @@ if st.session_state.xml_data is None:
         st.rerun()
     st.stop()
 
-# --- 8. THE ENGINE ---
+# --- 8. THE DATA ENGINE ---
 try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
@@ -263,19 +265,7 @@ try:
                     st.markdown(f"<div class='swatch-grid-card'><b>{cid}</b>", unsafe_allow_html=True)
                     if os.path.exists(img_path): st.image(img_path, use_container_width=True)
                     else: st.markdown("<div class='missing-photo'>MISSING</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='swatch-label'>{st.session_state.color_map[cid]}</div></div>", unsafe_allow_html=True)
-
-        # Manual entry footer
-        with st.expander("⌨️ Manual Entry"):
-            m1, m2 = st.columns(2)
-            mid = m1.text_input("ID #", key=f"man_id_{st.session_state.reset_key}")
-            mna = m2.text_input("Name", key=f"man_na_{st.session_state.reset_key}")
-            if st.button("Manual Save"):
-                if mid and mna:
-                    st.session_state.color_map[str(mid)] = mna
-                    save_registry(st.session_state.color_map)
-                    trigger_reset()
-                    st.rerun()
+                    st.markdown(f"<div class='swatch-label' title='{st.session_state.color_map[cid]}'>{st.session_state.color_map[cid]}</div></div>", unsafe_allow_html=True)
 
     # --- MODE: GAP AUDITOR ---
     elif app_mode == "Gap Auditor":
