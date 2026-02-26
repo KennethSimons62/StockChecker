@@ -3,16 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentation | LEGO Master Auditor</title>
+    <title>Documentation | LEGO Master Auditor v4.1.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --lego-red: #ff4b4b;
-            --lego-yellow: #ffcf00;
+            --lego-blue: #3b82f6;
+            --lego-green: #10b981;
+            --lego-yellow: #f59e0b;
             --bg: #0f172a;
-            --card: rgba(30, 41, 59, 0.7);
+            --card: rgba(30, 41, 59, 0.8);
+            --border: rgba(255, 255, 255, 0.1);
         }
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', sans-serif;
             background: radial-gradient(circle at top right, #1e293b, var(--bg));
             color: #cbd5e1;
             line-height: 1.6;
@@ -20,78 +24,174 @@
             padding: 40px 20px;
         }
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
             background: var(--card);
             backdrop-filter: blur(12px);
             padding: 50px;
-            border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            border: 1px solid var(--border);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        .back-btn {
-            color: var(--lego-red);
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-block;
-            margin-bottom: 30px;
-            transition: 0.3s;
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
         }
-        .back-btn:hover { transform: translateX(-5px); }
-        h1 { color: #fff; font-size: 2.5rem; margin-top: 0; }
-        h2 { color: var(--lego-yellow); margin-top: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
-        h3 { color: #fff; margin-bottom: 10px; }
-        .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-        .feature-item { background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
-        code { background: #000; color: #ff8a8a; padding: 3px 8px; border-radius: 4px; font-family: 'Fira Code', monospace; }
-        pre { background: #000; padding: 15px; border-radius: 8px; overflow-x: auto; color: #7dd3fc; }
-        .footer { text-align: center; margin-top: 40px; font-size: 0.9rem; color: #64748b; }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        .version-tag {
+            display: inline-block;
+            background: var(--lego-blue);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        h2 {
+            color: var(--lego-blue);
+            border-left: 5px solid var(--lego-red);
+            padding-left: 15px;
+            margin-top: 40px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 25px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+        .feature-item h3 {
+            margin-top: 0;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .step {
+            background: #1e293b;
+            color: #38bdf8;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        pre {
+            background: #000;
+            padding: 20px;
+            border-radius: 12px;
+            overflow-x: auto;
+            color: #10b981;
+            font-family: 'Fira Code', monospace;
+            border: 1px solid #334155;
+        }
+        .grid-legend {
+            display: flex;
+            gap: 20px;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .legend-box { width: 20px; height: 20px; border-radius: 4px; }
+        .green { background: var(--lego-green); }
+        .yellow { background: var(--lego-yellow); }
+        .red { background: var(--lego-red); opacity: 0.3; }
+
+        .trouble-box {
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid var(--lego-red);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="index.html" class="back-btn">← Back to Hub</a>
-        
-        <h1>🧱 LEGO Master Auditor</h1>
-        <p><strong>Version: 1.8.2</strong> | <strong>Developer:</strong> Kenneth Simons (Mr Brick UK)</p>
-        
-        <p>A specialized inventory management and auditing tool designed for high-volume LEGO resellers. This application processes BrickLink-style XML store exports to identify storage gaps and ensure condition consistency across your inventory.</p>
+        <div class="header">
+            <h1>LEGO Master Auditor</h1>
+            <div class="version-tag">v4.1.0 Documentation</div>
+            <p>The complete guide to managing your BrickLink inventory storage.</p>
+        </div>
 
-        <h2>🚀 Key Features</h2>
+        <h2>🚀 Core Tools</h2>
         <div class="feature-grid">
             <div class="feature-item">
-                <h3>1. Gap Auditor</h3>
-                <p>Automatically identifies "holes" in your storage system using smart parsing for drawer IDs (e.g., A001-05).</p>
+                <h3>🔍 Gap Auditor</h3>
+                <p>Finds empty holes in your drawers. It scans your <code>REMARKS</code> field and compares it to your physical layout to show exactly what is empty.</p>
             </div>
             <div class="feature-item">
-                <h3>2. Condition Guard</h3>
-                <p>Prevents mixing "New" and "Used" parts in the same container with instant conflict detection.</p>
+                <h3>🛡️ Condition Guard</h3>
+                <p>Safety first! This tool checks every container to ensure you haven't mixed <b>New</b> and <b>Used</b> parts in the same drawer or box.</p>
+            </div>
+            <div class="feature-item">
+                <h3>📁 Profile Commander</h3>
+                <p>Allows you to create different "Layouts" for your store. You can have a profile for your Main Wall and a different one for your Back Stock.</p>
             </div>
         </div>
 
-        <h2>🛠️ Installation & Setup</h2>
-        <p><strong>Prerequisites:</strong> Python 3.8+, Streamlit, Pandas</p>
-        <pre>pip install streamlit pandas</pre>
+        <h2>📖 "Idiot-Proof" How-To Guide</h2>
         
-        <h3>Required Data Structure</h3>
-        <pre>
-/your-project-folder
-├── auditor.py           # The main code
-├── store.xml            # Your inventory data
-├── parts.txt            # Catalog reference
-└── /lego_profiles       # Auto-created settings
-        </pre>
-
-        <h2>💡 How to Use</h2>
+        <h3>Step 1: Setting up your Warehouse</h3>
+        <p>In the sidebar, look at the <b>Layout Editor</b>. Each "Category" (Drawers, Boxes, etc.) needs four numbers:</p>
         <ul>
-            <li><strong>Load Data:</strong> Ensure your BrickLink inventory is named <code>store.xml</code>.</li>
-            <li><strong>Configure Profiles:</strong> Use the sidebar to define your drawer ranges.</li>
-            <li><strong>Audit Gaps:</strong> See which drawers have empty slots for new parts.</li>
-            <li><strong>Verify Quality:</strong> Check for N/U condition conflicts before uploading.</li>
+            <li><b>Prefix:</b> What you type in BrickLink (e.g., <code>B</code> for Boxes). Leave blank for standard drawers.</li>
+            <li><b>Start/End:</b> The range of the units (e.g., Box 1 to Box 40).</li>
+            <li><b>Holes:</b> How many slots are in that unit (Drawers = 1, Boxes = 30).</li>
         </ul>
 
+        <h3>Step 2: Using the Search Filters</h3>
+        <p>This is the most powerful part of v4.1.0. Use the filters at the <b>top</b> of the sidebar:</p>
+        <ul>
+            <li><b>Max Qty / Slot:</b> Set to <code>0</code> to find totally empty holes. Set to <code>5</code> to find "nearly empty" holes you can top up.</li>
+            <li><b>Condition Focus:</b> Tell the app you only want to see holes that are already <code>Used</code> so you don't accidentally put a New part in them.</li>
+        </ul>
+
+        <h3>Step 3: Understanding the Visual Grid</h3>
+        <p>When you expand a Box or Case, you will see a color-coded map:</p>
+        <div class="grid-legend">
+            <div class="legend-box green"></div> <span><b>Green:</b> Matches your search (Totally Empty)</span>
+        </div>
+        <div class="grid-legend">
+            <div class="legend-box yellow"></div> <span><b>Yellow:</b> Matches your search (Low Qty / Nearly Empty)</span>
+        </div>
+        <div class="grid-legend">
+            <div class="legend-box red"></div> <span><b>Faded Red:</b> Occupied or doesn't match your filter</span>
+        </div>
+
+        <h2>📂 Profile Management</h2>
+        <p>To save your work so you don't have to type it again:</p>
+        <ol>
+            <li>Type a name in the <b>Save As New Name</b> box.</li>
+            <li>Click <b>💾 SAVE PROFILE</b>.</li>
+            <li>Next time, just select it from the <b>Load Profile</b> dropdown.</li>
+        </ol>
+
+        <div class="trouble-box">
+            <h3>👻 Troubleshooting: "The Ghost in the Machine"</h3>
+            <p>If you update your code but the app doesn't change, or you get a <b>"Dubious Ownership"</b> error, run this command in your terminal:</p>
+            <pre>git config --global --add safe.directory "*"</pre>
+            <p>This "Unlocks" your network drive so the application can see your latest changes.</p>
+        </div>
+
         <div class="footer">
-            © 2026 Mr Brick UK - Built for LEGO Resellers
+            Designed for high-volume resellers<br>
+            Developed by Kenneth Simons (Mr Brick UK) • v4.1.0
         </div>
     </div>
 </body>
