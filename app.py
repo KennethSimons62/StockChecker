@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.6.0 - THE BLOODY FINAL FIX"
+VERSION = "5.6.1 - THE BLOODY FINAL FIX + COLOR STATS"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -42,6 +42,7 @@ if 'color_map' not in st.session_state:
 def load_parts_catalog():
     if os.path.exists("Parts.txt"):
         try:
+            # [cite_start]Using specific column indices 2 and 3 as per your internal catalog logic [cite: 1]
             df = pd.read_csv("Parts.txt", sep='\t', encoding='latin1', on_bad_lines='skip')
             return dict(zip(df.iloc[:, 2].astype(str), df.iloc[:, 3]))
         except: return {}
@@ -171,6 +172,21 @@ try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
+    # --- START COLOR REGISTRY SYNC CHECK ---
+    # Creates a set of all unique Color IDs found in the uploaded XML
+    xml_color_ids = {str(item.find("COLOR").text) for item in items if item.find("COLOR") is not None}
+    matched_colors = [c for c in xml_color_ids if c in st.session_state.color_map]
+    unmatched_colors = [c for c in xml_color_ids if c not in st.session_state.color_map]
+
+    st.sidebar.info(f"🎨 **Color Registry Check**\n\n"
+                    f"✅ Matched: {len(matched_colors)}\n"
+                    f"❌ Missing: {len(unmatched_colors)}")
+
+    if unmatched_colors:
+        with st.sidebar.expander("⚠️ View Missing Color IDs"):
+            st.write(sorted(unmatched_colors))
+    # --- END COLOR REGISTRY SYNC CHECK ---
+
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
     container_contents = defaultdict(list)
     pure_clues_map = defaultdict(list) 
@@ -242,7 +258,6 @@ try:
 
         st.subheader("🎨 Swatch Gallery")
         if st.session_state.color_map:
-            # PURE STREAMLIT GRID - NO HTML BOXES
             cols = st.columns(10) 
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             for i, cid in enumerate(sorted_cids):
@@ -251,13 +266,11 @@ try:
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
-                    # Native st.image call - small width, no black box
                     if os.path.exists(img_path):
                         st.image(img_path, width=60)
                     else:
                         st.caption(f"No {padded}.png")
                     
-                    # Large Bold Text Label
                     st.markdown(f"**{st.session_state.color_map[cid]} ({cid})**")
 
         with st.expander("⌨️ Manual Registry Entry"):
