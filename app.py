@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.6.1 - THE BLOODY FINAL FIX + COLOR STATS"
+VERSION = "5.6.2 - SWATCH AUDITOR EDITION"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -42,7 +42,6 @@ if 'color_map' not in st.session_state:
 def load_parts_catalog():
     if os.path.exists("Parts.txt"):
         try:
-            # [cite_start]Using specific column indices 2 and 3 as per your internal catalog logic [cite: 1]
             df = pd.read_csv("Parts.txt", sep='\t', encoding='latin1', on_bad_lines='skip')
             return dict(zip(df.iloc[:, 2].astype(str), df.iloc[:, 3]))
         except: return {}
@@ -82,10 +81,11 @@ st.markdown("""
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
+    .missing-img { color: #f87171; font-weight: bold; font-size: 0.8rem; border: 1px dashed #f87171; padding: 5px; text-align: center; border-radius: 5px; margin-bottom: 5px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. THE SIDEBAR (STABLE ANCHOR) ---
+# --- 5. THE SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
@@ -172,20 +172,15 @@ try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
-    # --- START COLOR REGISTRY SYNC CHECK ---
-    # Creates a set of all unique Color IDs found in the uploaded XML
+    # Sidebar Sync Check
     xml_color_ids = {str(item.find("COLOR").text) for item in items if item.find("COLOR") is not None}
     matched_colors = [c for c in xml_color_ids if c in st.session_state.color_map]
     unmatched_colors = [c for c in xml_color_ids if c not in st.session_state.color_map]
-
-    st.sidebar.info(f"🎨 **Color Registry Check**\n\n"
-                    f"✅ Matched: {len(matched_colors)}\n"
-                    f"❌ Missing: {len(unmatched_colors)}")
-
+    
+    st.sidebar.info(f"🎨 **Color Registry Check**\n\n✅ Matched: {len(matched_colors)}\n❌ Missing: {len(unmatched_colors)}")
     if unmatched_colors:
         with st.sidebar.expander("⚠️ View Missing Color IDs"):
             st.write(sorted(unmatched_colors))
-    # --- END COLOR REGISTRY SYNC CHECK ---
 
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
     container_contents = defaultdict(list)
@@ -213,6 +208,7 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
+    # Clue extraction for Color Registry
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
             if len(stats['color_ids']) == 1:
@@ -228,7 +224,6 @@ try:
         all_xml_cids = set(pure_clues_map.keys())
         unknowns = [c for c in all_xml_cids if c not in st.session_state.color_map]
         
-        # 1. Discovery Zone
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Discovery Zone")
@@ -252,37 +247,27 @@ try:
                         st.session_state.color_map[target_cid] = train_name
                         save_registry(st.session_state.color_map)
                         st.session_state.clue_index = 0
-                        trigger_reset()
-                        st.rerun()
+                        trigger_reset(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        st.subheader("🎨 Swatch Gallery")
+        st.subheader("🎨 Swatch Gallery & Image Audit")
         if st.session_state.color_map:
-            cols = st.columns(10) 
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
+            cols = st.columns(8) 
             for i, cid in enumerate(sorted_cids):
-                with cols[i % 10]:
+                with cols[i % 8]:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
                     if os.path.exists(img_path):
-                        st.image(img_path, width=60)
+                        st.image(img_path, use_container_width=True)
+                        st.caption(f"✅ {padded}.png")
                     else:
-                        st.caption(f"No {padded}.png")
+                        st.markdown(f"<div class='missing-img'>📷 MISSING<br>{padded}.png</div>", unsafe_allow_html=True)
                     
-                    st.markdown(f"**{st.session_state.color_map[cid]} ({cid})**")
-
-        with st.expander("⌨️ Manual Registry Entry"):
-            m1, m2 = st.columns(2)
-            mid = m1.text_input("ID #", key=f"man_id_{st.session_state.reset_key}")
-            mna = m2.text_input("Name", key=f"man_na_{st.session_state.reset_key}")
-            if st.button("Manual Save"):
-                if mid and mna:
-                    st.session_state.color_map[str(mid)] = mna
-                    save_registry(st.session_state.color_map)
-                    trigger_reset()
-                    st.rerun()
+                    st.markdown(f"**{st.session_state.color_map[cid]}**")
+                    st.code(f"ID: {cid}", language=None)
 
     # --- MODE: GAP AUDITOR ---
     elif app_mode == "Gap Auditor":
@@ -310,8 +295,10 @@ try:
     # --- MODE: CONDITION GUARD ---
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts: st.success("✅ Consistent.")
+        if not conflicts:
+            st.success("✅ Consistent: No containers have mixed condition (New/Used) within the same hole.")
         else:
+            st.error(f"Found {len(conflicts)} containers with condition conflicts.")
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
                     for row in container_contents[c_id]:
