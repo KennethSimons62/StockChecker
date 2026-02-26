@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.6.9 - DISCOVERY ERROR TRAP"
+VERSION = "5.6.10 - CLEAN DISCOVERY"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -42,7 +42,6 @@ if 'color_map' not in st.session_state:
 def load_parts_catalog():
     if os.path.exists("Parts.txt"):
         try:
-            # Matches Column 2 (ID) and Column 3 (Description) from Parts.txt
             df = pd.read_csv("Parts.txt", sep='\t', encoding='latin1', on_bad_lines='skip')
             return dict(zip(df.iloc[:, 2].astype(str), df.iloc[:, 3]))
         except: return {}
@@ -61,9 +60,7 @@ if 'temp_categories' not in st.session_state:
     else:
         st.session_state.temp_categories = [
             {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
-            {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30},
-            {"name": "Cases (C)", "prefix": "C", "start": 1, "end": 180, "cap": 18},
-            {"name": "Drawers (D)", "prefix": "D", "start": 1, "end": 38, "cap": 24}
+            {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30}
         ]
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
@@ -85,7 +82,6 @@ st.markdown("""
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     .missing-text { color: #f87171; font-weight: bold; font-size: 0.6rem; text-align: center; display: block; margin-bottom: 5px; line-height: 1.1; }
-    .stat-card { background: #111; padding: 10px; border-radius: 5px; border: 1px solid #333; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -148,17 +144,13 @@ def get_clean_id(prefix, number):
 def parse_holes(expr):
     holes = set()
     if not expr: return {1}
-    # Standardize hyphenation and slashes
     clean = str(expr).replace('/', '-').replace('\\', '-').replace(' ', '')
     for p in re.split(r'[,;]+', clean):
         if not p: continue
         if '-' in p:
             try:
                 pts = p.split('-')
-                if len(pts) == 2:
-                    holes.update(range(int(pts[0]), int(pts[1]) + 1))
-                else:
-                    holes.add(int(pts[0])) # Handle cases like '1-'
+                holes.update(range(int(pts[0]), int(pts[1]) + 1))
             except: continue
         else:
             try: holes.add(int(p))
@@ -186,10 +178,9 @@ try:
     unmatched_colors = [c for c in xml_color_ids if c not in st.session_state.color_map]
     
     st.sidebar.info(f"🎨 **Color Registry Check**\n\n✅ Matched: {len(matched_colors)}\n❌ Missing: {len(unmatched_colors)}")
-    
-    # Error Trap Debugger in Sidebar
-    with st.sidebar.expander("🐞 Location Debugger"):
-        debug_loc = st.text_input("Test Location ID (e.g. D031)", value="D031")
+    if unmatched_colors:
+        with st.sidebar.expander("⚠️ View Missing Color IDs"):
+            st.write(sorted(unmatched_colors))
 
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
     container_contents = defaultdict(list)
@@ -199,15 +190,10 @@ try:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             rem = rem_node.text.strip()
-            
-            # IMPROVED REGEX: Specifically looks for prefix letters followed by numbers, 
-            # then handles various separators for the hole/bag number.
             m = re.search(r'^([A-Za-z]*)(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', rem)
-            
             if m:
                 pref, num, h_raw = m.groups()
                 norm_id = get_clean_id(pref or "", num)
-                
                 cid = str(item.find("COLOR").text)
                 cond = (item.find("CONDITION").text or "U").upper()
                 qty = int(item.find("QTY").text or 0)
@@ -221,15 +207,10 @@ try:
                     container_stats[norm_id][h]["qty"] += qty
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
-                
-                # Debug Check
-                if debug_loc.upper() in norm_id.upper():
-                    st.sidebar.write(f"Found {norm_id} in XML: CID {cid}, Hole {h_raw}")
 
-    # Build Clues for Discovery
+    # Clue extraction for Color Registry
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
-            # Trigger discovery if the color ID isn't in the registry
             for target_cid in stats['color_ids']:
                 if target_cid not in st.session_state.color_map:
                     for content in container_contents[loc_id]:
@@ -240,17 +221,7 @@ try:
 
     # --- MODE: COLOR REGISTRY ---
     if app_mode == "Color Registry":
-        # 1. Global Audit Stats
-        total_reg = len(st.session_state.color_map)
-        images_found = len([f for f in os.listdir(IMAGE_DIR) if f.endswith(".png")])
-        
-        s1, s2, s3 = st.columns(3)
-        with s1: st.markdown(f"<div class='stat-card'>📚 Registry Size<br><b>{total_reg} Colors</b></div>", unsafe_allow_html=True)
-        with s2: st.markdown(f"<div class='stat-card'>📷 Images Found<br><b>{images_found} Files</b></div>", unsafe_allow_html=True)
-        with s3: st.markdown(f"<div class='stat-card'>⚠️ Missing Images<br><b>{max(0, total_reg - images_found)} Remaining</b></div>", unsafe_allow_html=True)
-        st.divider()
-
-        # 2. Discovery Zone
+        # Discovery Zone (Moves to top when needed)
         all_found_cids = sorted(list(pure_clues_map.keys()), key=lambda x: int(x) if x.isdigit() else 999)
         unknowns = [c for c in all_found_cids if c not in st.session_state.color_map]
         
@@ -268,7 +239,7 @@ try:
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with c2:
-                train_name = st.text_input("Enter Color Name (e.g. Reddish Brown):", key=f"train_{st.session_state.reset_key}")
+                train_name = st.text_input("Enter Color Name:", key=f"train_{st.session_state.reset_key}")
                 st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             with c3:
                 st.write("")
@@ -279,10 +250,8 @@ try:
                         st.session_state.clue_index = 0
                         trigger_reset(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.success("✅ All color IDs in current XML are registered!")
 
-        # 3. Swatch Gallery & Search
+        # Swatch Audit Header & Search
         h1, h2 = st.columns([2, 1])
         with h1: st.subheader("🎨 Swatch Gallery & Image Audit")
         with h2: reg_search = st.text_input("🔍 Search Registry...", placeholder="ID or Name")
