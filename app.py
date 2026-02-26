@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.5.3 - THE READABILITY UPDATE"
+VERSION = "5.5.4 - THE BLOODY IMAGE FIX"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -84,46 +84,21 @@ st.markdown("""
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     
-    /* CLEAN SWATCH CARD - NO GHOST BOXES */
-    .swatch-item { 
-        border: 2px solid #334155; 
-        border-radius: 10px; 
-        padding: 12px; 
-        text-align: center; 
-        background: #0f172a; 
-        margin-bottom: 15px; 
-        min-height: 160px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
-    .swatch-missing { 
-        height: 80px; 
-        width: 80px;
-        background: #1e293b; 
-        border-radius: 6px; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        color: #64748b; 
-        font-size: 0.6rem; 
-        border: 1px dashed #475569; 
-        margin-bottom: 10px; 
-    }
-    .swatch-text { 
-        font-size: 0.95rem; /* SENSIBLE SIZE */
-        color: #f8fafc; 
-        font-weight: 700; 
-        line-height: 1.2;
-        margin-top: 5px;
-        word-wrap: break-word;
+    /* BIG READABLE TEXT FOR GALLERY */
+    .swatch-label-big { 
+        font-size: 1.1rem !important; 
+        font-weight: 800 !important; 
+        color: #ffffff !important; 
+        text-align: center;
+        margin-top: 10px;
+        line-height: 1.1;
     }
     .swatch-id-sub {
-        font-size: 0.75rem;
+        font-size: 0.85rem;
         color: #3b82f6;
+        text-align: center;
         font-family: monospace;
-        margin-top: 2px;
+        margin-bottom: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -267,7 +242,7 @@ try:
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
                 st.metric("ID", target_cid)
-                if st.button("⏭️ NEXT CLUE"):
+                if st.button("⏭️ NEXT PURE CLUE"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with col2:
@@ -286,22 +261,22 @@ try:
 
         st.subheader("🎨 Swatch Gallery")
         if st.session_state.color_map:
-            cols = st.columns(8) # Reduced to 8 columns for better text width
+            cols = st.columns(6) # Even wider columns for max readability
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             for i, cid in enumerate(sorted_cids):
-                with cols[i % 8]:
+                with cols[i % 6]:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
-                    st.markdown("<div class='swatch-item'>", unsafe_allow_html=True)
+                    # THE FIX: No HTML wrappers around st.image
                     if os.path.exists(img_path):
-                        st.image(img_path, use_container_width=False, width=80)
+                        st.image(img_path, use_container_width=True)
                     else:
-                        st.markdown(f"<div class='swatch-missing'>{padded}.png</div>", unsafe_allow_html=True)
+                        st.warning(f"MISSING: {padded}.png")
                     
-                    st.markdown(f"<div class='swatch-text'>{st.session_state.color_map[cid]}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='swatch-id-sub'>ID: {cid}</div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='swatch-label-big'>{st.session_state.color_map[cid]}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='swatch-id-sub'>ID: {cid}</div>", unsafe_allow_html=True)
 
         with st.expander("⌨️ Manual Registry Entry"):
             m1, m2 = st.columns(2)
@@ -320,7 +295,7 @@ try:
         for idx, cat in enumerate(st.session_state.temp_categories):
             with tabs[idx]:
                 pref, cap = str(cat['prefix']).upper().strip(), int(cat['cap'])
-                st.markdown(f"<div class='cat-header'>{cat['name']}</div>", unsafe_allow_html=True)
+                st.markdown(f"### {cat['name']}")
                 for n in range(int(cat['start']), int(cat['end']) + 1):
                     uid = get_clean_id(pref, n)
                     udata = container_stats.get(uid, {})
@@ -332,7 +307,7 @@ try:
                             if purity_filter == "Show All" or purity_filter.upper().startswith(p_st):
                                 umatches[h] = {"cids": hinfo["color_ids"]}
                     if umatches:
-                        with st.expander(f"{pref}{n:03d} — {len(umatches)} slots"):
+                        with st.expander(f"{pref}{n:03d} — {len(umatches)} gaps"):
                             for h_n, m_d in umatches.items():
                                 names = [st.session_state.color_map.get(cid, f"Code {cid}") + f" ({cid})" for cid in m_d['cids']]
                                 st.write(f"📍 Slot {h_n}: {', '.join(names)}")
