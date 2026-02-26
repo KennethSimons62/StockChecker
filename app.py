@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.5.1 - THE CLEAN SWATCH"
+VERSION = "5.5.2 - THE PNG UPGRADE"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -132,7 +132,6 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"sidebar_end_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"sidebar_cap_{i}")
 
-# Filter controls for Auditor modes
 if app_mode in ["Gap Auditor", "Condition Guard"]:
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔍 Search Filters")
@@ -254,13 +253,13 @@ try:
                 with cols[i % 10]:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
-                    img_path = os.path.join(IMAGE_DIR, f"{padded}.jpg")
+                    img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
                     
                     st.markdown("<div class='swatch-item'>", unsafe_allow_html=True)
                     if os.path.exists(img_path):
                         st.image(img_path, use_container_width=True)
                     else:
-                        st.markdown("<div class='swatch-missing'>MISSING<br>"+padded+".jpg</div>", unsafe_allow_html=True)
+                        st.markdown("<div class='swatch-missing'>NO PHOTO<br>"+padded+".png</div>", unsafe_allow_html=True)
                     
                     st.markdown(f"<div class='swatch-text'>{st.session_state.color_map[cid]} ({cid})</div></div>", unsafe_allow_html=True)
 
