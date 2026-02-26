@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.0.0 - THE COLOR COMMANDER"
+VERSION = "5.1.0"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -76,13 +76,23 @@ if 'xml_data' not in st.session_state:
 if 'clue_index' not in st.session_state:
     st.session_state.clue_index = 0
 
+# NEW: Cleanup function to clear the input box after saving
+def finalize_training(cid, name):
+    st.session_state.color_map[cid] = name
+    save_registry(st.session_state.color_map)
+    st.session_state.clue_index = 0
+    # This force-clears the widget memory
+    if 'train_inp' in st.session_state:
+        st.session_state.train_inp = "" 
+    st.rerun()
+
 # --- 5. PAGE STYLE ---
 st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide")
 
 st.markdown("""
     <style>
     .trainer-card { background-color: #1e1b4b; padding: 25px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 20px; }
-    .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; }
+    .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; font-size: 0.95rem;}
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .hole-box { display: inline-block; width: 30px; height: 30px; margin: 2px; border-radius: 4px; text-align: center; font-size: 10px; line-height: 30px; font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.1); }
     .hole-empty { background-color: #10b981; }
@@ -109,7 +119,6 @@ st.sidebar.subheader("📂 Profiles & Layout")
 profiles = get_profile_list()
 selected_p = st.sidebar.selectbox("Load Profile", profiles, index=profiles.index(st.session_state.active_profile) if st.session_state.active_profile in profiles else 0)
 
-# Profile Logic
 if selected_p != st.session_state.active_profile:
     st.session_state.active_profile = selected_p
     path = os.path.join(PROFILE_DIR, f"{selected_p}.json")
@@ -159,8 +168,6 @@ try:
 
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
     container_contents = defaultdict(list)
-    
-    # Map ColorID -> List of PURE locations (locations with only ONE color)
     pure_clues_map = defaultdict(list) 
 
     for item in items:
@@ -187,12 +194,11 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # Secondary Pass: Find clues that are UNIQUE to a location
+    # Pure Clue Logic
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
-            if len(stats['color_ids']) == 1: # PURE LOCATION DETECTED
+            if len(stats['color_ids']) == 1:
                 target_cid = list(stats['color_ids'])[0]
-                # Find the first item name in this pure location
                 for content in container_contents[loc_id]:
                     if content['h'] == str(hole_num) or (content['h'] == "1" and hole_num == 1):
                         clue_str = f"<b>{content['name']}</b> (ID: {content['id']}) @ 📍 <b>{loc_id}{' (Hole '+str(hole_num)+')' if hole_num > 1 else ''}</b>"
@@ -201,9 +207,6 @@ try:
 
     # --- 💡 MODE: COLOR REGISTRY ---
     if app_mode == "Color Registry":
-        st.info("Assign names to BrickLink color codes found in your inventory.")
-        
-        # Part A: The Trainer (Unknowns)
         unknowns = [c for c in pure_clues_map.keys() if c not in st.session_state.color_map]
         
         if unknowns:
@@ -212,52 +215,47 @@ try:
             
             target_cid = unknowns[0]
             clues = pure_clues_map[target_cid]
+            if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
                 st.metric("Found ID", target_cid)
-                if st.button("⏭️ NEXT PURE CLUE", use_container_width=True):
+                if st.button("⏭️ NEXT CLUE", use_container_width=True):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             
             with col2:
-                train_name = st.text_input(f"Name for {target_cid}:", key="train_inp")
-                if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
-                st.markdown(f"<div class='clue-box'><b>Unique Clue:</b><br>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
+                # Key 'train_inp' allows us to clear it programmatically
+                train_name = st.text_input(f"Name for Color {target_cid}:", key="train_inp")
+                st.markdown(f"<div class='clue-box'><b>Unique GPS Clue:</b><br>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             
             with col3:
                 st.write("")
-                if st.button("✅ LEARN NAME", use_container_width=True):
+                if st.button("💾 SAVE TO REGISTRY", use_container_width=True):
                     if train_name:
-                        st.session_state.color_map[target_cid] = train_name
-                        save_registry(st.session_state.color_map)
-                        st.session_state.clue_index = 0
-                        st.rerun()
+                        finalize_training(target_cid, train_name)
             st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.success("All colors in this XML are recognized!")
+            st.success("🎉 All colors in this XML are identified!")
 
-        # Part B: Proactive & List
         col_left, col_right = st.columns([1, 1])
-        
         with col_left:
             st.subheader("➕ Manual Addition")
-            m_id = st.text_input("Color ID #", placeholder="e.g. 11")
-            m_name = st.text_input("Friendly Name", placeholder="e.g. Black")
+            m_id = st.text_input("Color ID #", placeholder="e.g. 11", key="man_id_inp")
+            m_name = st.text_input("Friendly Name", placeholder="e.g. Black", key="man_name_inp")
             if st.button("Add to Registry"):
                 if m_id and m_name:
                     st.session_state.color_map[str(m_id)] = m_name
                     save_registry(st.session_state.color_map)
+                    st.session_state.man_id_inp = ""
+                    st.session_state.man_name_inp = ""
                     st.rerun()
 
         with col_right:
             st.subheader("📋 Registry List")
-            # Convert to DataFrame for a nice scrollable list
             if st.session_state.color_map:
                 reg_df = pd.DataFrame(list(st.session_state.color_map.items()), columns=["ID", "Name"])
                 st.dataframe(reg_df.sort_values(by="ID"), hide_index=True, use_container_width=True, height=300)
-            else:
-                st.write("Registry is empty.")
 
     # --- 💡 MODE: GAP AUDITOR ---
     elif app_mode == "Gap Auditor":
@@ -293,7 +291,6 @@ try:
                                 if m_data['cids']:
                                     names = [st.session_state.color_map.get(cid, f"Code {cid}") for cid in m_data['cids']]
                                     st.markdown(f"📍 **Slot {h_num}:** {', '.join(names)}")
-                if match_count == 0: st.warning("No matches.")
 
     # --- 💡 MODE: CONDITION GUARD ---
     elif app_mode == "Condition Guard":
@@ -302,7 +299,7 @@ try:
             st.success("✅ Condition Purity: All containers consistent.")
         else:
             for c_id in sorted(conflicts):
-                with st.expander(f"🔴 Conflict: {c_id}"):
+                with st.expander(f"🔴 Conflict in {c_id}"):
                     for row in container_contents[c_id]:
                         c_name = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
                         st.write(f"**{row['qty']}x** {row['name']} — {c_name} (**{row['cond']}**) @ Hole {row['h']}")
