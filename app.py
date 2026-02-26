@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.4.2 - THE UNBREAKABLE SIDEBAR"
+VERSION = "5.5.0 - THE SWATCH GALLERY"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -83,12 +83,17 @@ st.markdown("""
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
-    .swatch-grid-card { border: 1px solid #334155; border-radius: 8px; padding: 5px; text-align: center; background: #0f172a; margin-bottom: 10px; }
-    .missing-photo { height: 60px; background: #1e293b; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 0.6rem; border: 1px dashed #334155; }
+    
+    /* Swatch Gallery Styling */
+    .swatch-item { border: 1px solid #334155; border-radius: 6px; padding: 8px; text-align: center; background: #0f172a; margin-bottom: 12px; height: 130px; }
+    .swatch-img-container { width: 60px; height: 60px; margin: 0 auto; overflow: hidden; border-radius: 4px; border: 1px solid #1e293b; background: #1e293b; }
+    .swatch-img-container img { width: 100%; height: 100%; object-fit: cover; }
+    .swatch-missing { width: 60px; height: 60px; margin: 0 auto; background: #1e293b; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 0.5rem; border: 1px dashed #334155; }
+    .swatch-text { font-size: 0.7rem; color: #cbd5e1; margin-top: 8px; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. THE SIDEBAR (MANDATORY RENDER) ---
+# --- 5. THE SIDEBAR (LOCKED GLOBAL) ---
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
@@ -118,7 +123,7 @@ if selected_p != st.session_state.active_profile:
     st.rerun()
 
 new_p_name = st.sidebar.text_input("New Profile Name", value=st.session_state.active_profile)
-if st.sidebar.button("💾 SAVE CURRENT PROFILE"):
+if st.sidebar.button("💾 SAVE PROFILE"):
     path = os.path.join(PROFILE_DIR, f"{new_p_name}.json")
     with open(path, "w") as f:
         json.dump(st.session_state.temp_categories, f, indent=4)
@@ -128,10 +133,6 @@ if st.sidebar.button("💾 SAVE CURRENT PROFILE"):
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
-if st.sidebar.button("➕ Add New Storage Section"):
-    st.session_state.temp_categories.append({"name": "New", "prefix": "X", "start": 1, "end": 10, "cap": 1})
-    st.rerun()
-
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"sidebar_lab_{i}")
@@ -139,9 +140,6 @@ for i, cat in enumerate(st.session_state.temp_categories):
         st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sidebar_sta_{i}")
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"sidebar_end_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"sidebar_cap_{i}")
-        if st.button("🗑️ Remove Section", key=f"sidebar_rem_{i}"):
-            st.session_state.temp_categories.pop(i)
-            st.rerun()
 
 # --- 6. CORE LOGIC HELPERS ---
 def get_clean_id(prefix, number):
@@ -234,12 +232,12 @@ try:
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
-                st.metric("Target Color ID", target_cid)
+                st.metric("ID Found", target_cid)
                 if st.button("⏭️ NEXT PURE CLUE"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with col2:
-                train_name = st.text_input(f"Name Color {target_cid}:", key=f"reg_train_{st.session_state.reset_key}")
+                train_name = st.text_input(f"Friendly Name for {target_cid}:", key=f"reg_train_{st.session_state.reset_key}")
                 st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             with col3:
                 st.write("")
@@ -252,8 +250,8 @@ try:
                         st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # Photo Wall
-        st.subheader("🖼️ The Photo Wall")
+        # Swatch Gallery (The Photo Wall)
+        st.subheader("🎨 Swatch Gallery")
         if st.session_state.color_map:
             cols = st.columns(10)
             sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
@@ -262,10 +260,27 @@ try:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
                     img_path = os.path.join(IMAGE_DIR, f"{padded}.jpg")
-                    st.markdown(f"<div class='swatch-grid-card'><b>{cid}</b>", unsafe_allow_html=True)
-                    if os.path.exists(img_path): st.image(img_path, use_container_width=True)
-                    else: st.markdown("<div class='missing-photo'>MISSING</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='swatch-label' title='{st.session_state.color_map[cid]}'>{st.session_state.color_map[cid]}</div></div>", unsafe_allow_html=True)
+                    
+                    st.markdown("<div class='swatch-item'>", unsafe_allow_html=True)
+                    if os.path.exists(img_path):
+                        st.markdown(f"<div class='swatch-img-container'><img src='app/static/{IMAGE_DIR}/{padded}.jpg'></div>", unsafe_allow_html=True)
+                        # NOTE: If running locally with standard streamlit, we'll use st.image instead for reliability
+                        st.image(img_path, use_container_width=True)
+                    else:
+                        st.markdown("<div class='swatch-missing'>NO PHOTO</div>", unsafe_allow_html=True)
+                    
+                    st.markdown(f"<div class='swatch-text'>{st.session_state.color_map[cid]} ({cid})</div></div>", unsafe_allow_html=True)
+
+        with st.expander("⌨️ Manual Registry Entry"):
+            m1, m2 = st.columns(2)
+            mid = m1.text_input("ID #", key=f"man_id_{st.session_state.reset_key}")
+            mna = m2.text_input("Name", key=f"man_na_{st.session_state.reset_key}")
+            if st.button("Manual Save"):
+                if mid and mna:
+                    st.session_state.color_map[str(mid)] = mna
+                    save_registry(st.session_state.color_map)
+                    trigger_reset()
+                    st.rerun()
 
     # --- MODE: GAP AUDITOR ---
     elif app_mode == "Gap Auditor":
@@ -287,7 +302,7 @@ try:
                     if umatches:
                         with st.expander(f"{pref}{n:03d} — {len(umatches)} slots"):
                             for h_n, m_d in umatches.items():
-                                names = [st.session_state.color_map.get(cid, f"Code {cid}") for cid in m_d['cids']]
+                                names = [st.session_state.color_map.get(cid, f"Code {cid}") + f" ({cid})" for cid in m_d['cids']]
                                 st.write(f"📍 Slot {h_n}: {', '.join(names)}")
 
     # --- MODE: CONDITION GUARD ---
@@ -299,7 +314,7 @@ try:
                 with st.expander(f"🔴 Conflict in {c_id}"):
                     for row in container_contents[c_id]:
                         c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
-                        st.write(f"**{row['qty']}x** {row['name']} ({row['cond']})")
+                        st.write(f"**{row['qty']}x** {row['name']} — {c_n} ({row['cid']}) [**{row['cond']}**]")
 
 except Exception as e:
     st.error(f"Error: {e}")
