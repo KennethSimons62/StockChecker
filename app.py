@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "4.4.0 - THE IRON CURTAIN"
+VERSION = "4.5.0 - THE CLEAN SWEEP"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -22,7 +22,6 @@ if not os.path.exists(PROFILE_DIR):
     except: pass
 
 def get_seller_defaults():
-    """Exact storage specs for Mr Brick UK."""
     return [
         {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
         {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30},
@@ -36,7 +35,7 @@ def get_profile_list():
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
     return sorted(files) if files else ["Default"]
 
-# --- 3. SESSION STATE INITIALIZATION ---
+# --- 3. SESSION STATE ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
 
@@ -63,7 +62,7 @@ st.markdown("""
     .hole-box { display: inline-block; width: 30px; height: 30px; margin: 2px; border-radius: 4px; text-align: center; font-size: 10px; line-height: 30px; font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.1); }
     .hole-empty { background-color: #10b981; }
     .hole-low { background-color: #f59e0b; }
-    .hole-filled { background-color: #ef4444; opacity: 0.2; }
+    .hole-filled { background-color: #ef4444; opacity: 0.15; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
@@ -72,9 +71,8 @@ st.markdown("""
 st.sidebar.title("🧱 Auditor Settings")
 st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
-# Filters at Top
 st.sidebar.subheader("🔍 Search Filters")
-qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0, help="Find holes with <= this many parts.")
+qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0)
 purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
 
 st.sidebar.markdown("---")
@@ -116,7 +114,6 @@ for i, cat in enumerate(st.session_state.temp_categories):
 
 # --- 6. CORE LOGIC ---
 def get_clean_id(prefix, number):
-    """Normalizes 'B001' to 'B1' and handled blank prefixes."""
     try:
         n = str(int(number))
         p = prefix.upper().strip()
@@ -162,7 +159,7 @@ try:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             rem = rem_node.text.strip()
-            # Regex: Group 1=Prefix, Group 2=ID, Group 3=Holes
+            # Group 1=Prefix, Group 2=ID, Group 3=Holes
             m = re.search(r'^([A-Za-z]*)\s*(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', rem)
             if m:
                 pref, num, h_raw = m.groups()
@@ -180,48 +177,45 @@ try:
         
         for idx in range(len(categories)):
             with tab_list[idx]:
-                # IRON CURTAIN: Strictly bind variables to this specific tab's index
-                target_cat = categories[idx]
-                t_name = target_cat['name']
-                t_prefix = str(target_cat['prefix'])
-                t_cap = int(target_cat['cap'])
-                t_start = int(target_cat['start'])
-                t_end = int(target_cat['end'])
+                # STRICT PREFIX VALIDATION
+                curr_cat = categories[idx]
+                curr_prefix = str(curr_cat['prefix']).upper().strip()
+                curr_cap = int(curr_cat['cap'])
                 
-                st.markdown(f"<div class='cat-header'>{t_name}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='cat-header'>{curr_cat['name']}</div>", unsafe_allow_html=True)
                 
                 match_count = 0
-                for n in range(t_start, t_end + 1):
-                    unit_id = get_clean_id(t_prefix, n)
-                    unit_data = container_stats.get(unit_id, {})
+                for n in range(int(curr_cat['start']), int(curr_cat['end']) + 1):
+                    # Generate search key (e.g., 'B1')
+                    target_id = get_clean_id(curr_prefix, n)
+                    
+                    # Look up data only for this specific ID
+                    unit_data = container_stats.get(target_id, {})
                     
                     unit_matches = {}
-                    for h in range(1, t_cap + 1):
+                    for h in range(1, curr_cap + 1):
                         h_info = unit_data.get(h, {"qty": 0, "conds": set()})
                         q = h_info["qty"]
                         
                         # Determine purity
-                        if not h_info["conds"]: p = "EMPTY"
-                        elif len(h_info["conds"]) > 1: p = "MIXED"
-                        else: p = "NEW" if "N" in h_info["conds"] else "USED"
+                        if not h_info["conds"]: p_state = "EMPTY"
+                        elif len(h_info["conds"]) > 1: p_state = "MIXED"
+                        else: p_state = "NEW" if "N" in h_info["conds"] else "USED"
                         
-                        # Apply User Filters
+                        # Filter Logic
                         if q <= qty_threshold:
-                            if purity_filter == "Show All" or purity_filter.upper().startswith(p):
-                                unit_matches[h] = {"qty": q, "purity": p}
+                            if purity_filter == "Show All" or purity_filter.upper().startswith(p_state):
+                                unit_matches[h] = {"qty": q, "purity": p_state}
                     
                     if unit_matches:
                         match_count += 1
-                        # CLEAN LABEL LOGIC: Just the number or Prefix+Number
-                        if t_prefix == "":
-                            display_id = f"{n}"
-                        else:
-                            display_id = f"{t_prefix}{n:03d}"
+                        # Build Clean Display ID (No NONE, No Unit)
+                        display_id = f"{curr_prefix}{n:03d}" if curr_prefix else f"{n}"
                         
-                        with st.expander(f"{display_id} — {len(unit_matches)} slots available"):
-                            if t_cap > 1:
+                        with st.expander(f"{display_id} — {len(unit_matches)} gaps"):
+                            if curr_cap > 1:
                                 grid = "<div>"
-                                for h in range(1, t_cap + 1):
+                                for h in range(1, curr_cap + 1):
                                     if h in unit_matches:
                                         s_cls = "hole-empty" if unit_matches[h]['qty'] == 0 else "hole-low"
                                         grid += f'<div class="hole-box {s_cls}">{h}</div>'
@@ -234,7 +228,7 @@ try:
                                 st.write(f"Qty: **{m['qty']}** | Condition: **{m['purity']}**")
                 
                 if match_count == 0:
-                    st.warning(f"No matches found in {t_name} category.")
+                    st.warning(f"No storage gaps found for {curr_cat['name']}.")
 
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
