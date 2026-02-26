@@ -1,53 +1,145 @@
-"Bricklink ID","Bricklink Color Name","Lego Name","Lego ID","Category"
-1,"White","White",1,"Solid"
-2,"Tan","Brick Yellow",5,"Solid"
-3,"Yellow","Bright Yellow",24,"Solid"
-4,"Orange","Bright Orange",106,"Solid"
-5,"Red","Bright Red",21,"Solid"
-7,"Blue","Bright Blue",23,"Solid"
-8,"Brown","Earth Orange",25,"Solid (Old)"
-9,"Light Gray","Grey",2,"Solid (Old)"
-10,"Dark Gray","Dark Grey",27,"Solid (Old)"
-11,"Black","Black",26,"Solid"
-12,"Trans-Clear","Transparent",40,"Transparent"
-13,"Trans-Black","Trans-Brown",111,"Transparent"
-21,"Chrome Silver","Metalized Silver",309,"Special"
-22,"Chrome Gold","Metalized Gold",310,"Special"
-55,"Sand Blue","Sand Blue",135,"Solid"
-59,"Dark Red","New Dark Red",154,"Solid"
-63,"Dark Blue","Earth Blue",140,"Solid"
-68,"Dark Orange","Dark Orange",38,"Solid"
-69,"Dark Tan","Sand Yellow",138,"Solid"
-71,"Magenta","Bright Reddish Violet",124,"solid"
-80,"Dark Green","Earth Green",141,"Solid"
-85,"Dark Bluish Gray","Dark Stone Grey",199,"Solid"
-86,"Light Bluish Gray","Medium Stone Grey",194,"Solid"
-88,"Reddish Brown","Reddish Brown",192,"Solid"
-110,"Bright Light Orange","Flame Yellowish Orange",191,"Solid"
-150,"Medium Nougat","Medium Nougat",312,"Solid"
-155,"Olive Green","Olive Green",330,"Solid"
-220,"Coral","Vibrant Coral",353,"Solid"
-108,"Trans Bright Green","TR Bright Green",311,"Transparent"
-103,"bright light yellow","cool yellow",226,"solid"
-158,"yellowish green","spring yellowish green",326,"solid"
-34,"lime","bright yellowish green",119,"solid"
-36,"bright green","bright green",37,"solid"
-6,"green","dark green",28,"solid"
-48,"sand green","sand green",151,"solid"
-152,"light aqua","aqua",323,"solid"
-105,"bright light blue","light royal blue",212,"solid"
-42,"medium blue","medium blue",102,"solid"
-156,"medium azure","medium azure",322,"solid"
-153,"dark azure","dark azure",321,"solid"
-89,"dark purple","medium lilac",268,"solid"
-157,"medium lavender","medium lavender",324,"solid"
-154,"lavender","lavender",325,"solid"
-47,"bright pink","light purple",222,"solid"
-47,"dark ppink","bright purple",221,"solid"
-120,"dark brown","dark brown",308,"solid"
-28,"flesh","nougat",18,"solid"
-90,"light flesh","light nougat",283,"solid"
-297,"pearl gold","warm gold",115,"special"
-84,"copper","copper metallic",345,"special"
-95,"flat silver","silver metallic",315,"special"
-77,"dark pearl grey","titanium metallic",316,"special"
+ID,Name,RGB,Lego ID,Lego Name,Bricklink ID,Bricklink Name,Brickowl ID,Brickowl Name
+0,Black,05131D,26,Black,11,Black,26,Black
+1,Blue,0055BF,23,Bright Blue,7,Blue,23,Blue
+2,Green,237841,28,Dark Green,6,Green,28,Green
+3,Dark Turquoise,008F9B,107,Bright Bluish Green,39,Dark Turquoise,107,Dark Turquoise
+4,Red,C91A09,21,Bright Red,5,Red,21,Red
+5,Dark Pink,C870A0,221,Bright Purple,47,Dark Pink,221,Dark Pink
+6,Brown,583927,25,Earth Orange,8,Brown,25,Brown
+7,Light Gray,9BA19D,2,Grey,9,Light Gray,2,Light Gray
+8,Dark Gray,6D6E5C,27,Dark Grey,10,Dark Gray,27,Dark Gray
+9,Light Blue,B4D2E3,45,Light Blue,62,Light Blue,45,Light Blue
+10,Bright Green,4B9F4A,37,Bright Green,36,Bright Green,37,Bright Green
+11,Light Turquoise,55A5AF,116,Medium Bluish Green,40,Light Turquoise,116,Light Turquoise
+12,Salmon,F2705E,121,Medium Reddish Orange,25,Salmon,121,Salmon
+13,Pink,FC97AC,16,Pink,23,Pink,16,Pink
+14,Yellow,F2CD37,24,Bright Yellow,3,Yellow,24,Yellow
+15,White,FFFFFF,1,White,1,White,1,White
+17,Light Green,C2DAB8,12,Light Green,38,Light Green,12,Light Green
+18,Light Yellow,FBE696,226,Cool Yellow,33,Light Yellow,226,Light Yellow
+19,Tan,D09168,5,Brick Yellow,2,Tan,5,Tan
+20,Light Orange,FEBABD,125,Light Orange,31,Medium Orange,125,Light Orange
+21,Medium Orange,FFA70B,106,Bright Orange,68,Orange,106,Orange
+22,Medium Blue,7396C8,102,Medium Blue,72,Medium Blue,102,Medium Blue
+25,Orange,DF6607,106,Bright Orange,4,Orange,106,Orange
+26,Magenta,92397B,124,Bright Reddish Violet,71,Magenta,124,Magenta
+27,Lime,BBE90B,119,Bright Yellowish Green,27,Lime,119,Lime
+28,Dark Tan,958A73,138,Sand Yellow,69,Dark Tan,138,Dark Tan
+29,Bright Pink,E4ADC8,113,Medium Reddish Violet,104,Bright Pink,113,Bright Pink
+30,Medium Lavender,AC78BA,311,Medium Lavender,157,Medium Lavender,311,Medium Lavender
+31,Lavender,E1D5ED,324,Medium Reddish Violet,154,Lavender,324,Lavender
+32,Trans-Black,635F52,40,Transparent Black,13,Trans-Black,40,Trans-Black
+33,Trans-Clear,FCFCFC,40,Transparent,12,Trans-Clear,40,Trans-Clear
+34,Trans-Blue,0020A0,41,Transparent Blue,14,Trans-Blue,41,Trans-Blue
+35,Trans-Green,84B68D,42,Transparent Green,20,Trans-Green,42,Trans-Green
+36,Trans-Red,C91A09,41,Transparent Red,17,Trans-Red,41,Trans-Red
+40,Trans-Yellow,F5CD2F,44,Transparent Yellow,19,Trans-Yellow,44,Trans-Yellow
+41,Trans-Orange,F08F1C,182,Transparent Bright Orange,98,Trans-Orange,182,Trans-Orange
+42,Trans-Light Blue,AEEFEC,42,Transparent Light Blue,15,Trans-Light Blue,42,Trans-Light Blue
+43,Trans-Neon Green,D9E4A7,47,Transparent Fluorescent Green,16,Trans-Neon Green,47,Trans-Neon Green
+46,Trans-Purple,A5A5CB,43,Transparent Violet,51,Trans-Purple,43,Trans-Purple
+47,Trans-Dark Blue,0020A0,126,Transparent Bright Bluish Violet,26,Trans-Dark Blue,126,Trans-Dark Blue
+52,Trans-Neon Orange,FF800D,48,Transparent Fluorescent Red Orange,18,Trans-Neon Orange,48,Trans-Neon Orange
+54,Trans-Neon Yellow,DAB000,49,Transparent Fluorescent Yellow,121,Trans-Neon Yellow,49,Trans-Neon Yellow
+57,Trans-Pink,E4ADC8,113,Medium Reddish Violet,107,Trans-Pink,113,Trans-Pink
+68,Very Light Gray,E6E3DA,103,Light Grey,99,Very Light Gray,103,Very Light Gray
+69,Dark Tan,958A73,138,Sand Yellow,69,Dark Tan,138,Dark Tan
+70,Reddish Brown,582A12,192,Reddish Brown,88,Reddish Brown,192,Reddish Brown
+71,Light Bluish Gray,A0A5A9,194,Medium Stone Grey,86,Light Bluish Gray,194,Light Bluish Gray
+72,Dark Bluish Gray,6C6E68,199,Dark Stone Grey,85,Dark Bluish Gray,199,Dark Bluish Gray
+73,Medium Nougat,AA7D55,312,Medium Nougat,150,Medium Nougat,312,Medium Nougat
+74,Medium Brown,755945,,,151,Medium Brown,
+75,Light Nougat,F6D7B3,283,Light Nougat,90,Light Nougat,283,Light Nougat
+76,Medium Nougat,AA7D55,312,Medium Nougat,150,Medium Nougat,312,Medium Nougat
+77,Light Brown,7C503A,,,158,Light Brown,
+78,Light Flesh,F6D7B3,283,Light Nougat,90,Light Nougat,283,Light Nougat
+79,Medium Flesh,AA7D55,312,Medium Nougat,150,Medium Nougat,312,Medium Nougat
+80,Dark Flesh,7C503A,216,Rust,91,Dark Flesh,216,Dark Flesh
+81,Medium Brown,755945,,,151,Medium Brown,
+82,Light Tan,E4CD9E,,,162,Light Tan,
+84,Medium Dark Flesh,9F7351,312,Medium Nougat,150,Medium Nougat,312,Medium Nougat
+85,Dark Nougat,AD6140,308,Dark Brown,120,Dark Nougat,308,Dark Nougat
+86,Dark Flesh,7C503A,216,Rust,91,Dark Flesh,216,Rust
+89,Royal Blue,4C61DB,196,Dark Royal Blue,111,Royal Blue,196,Royal Blue
+92,Flesh,D67572,216,Rust,28,Flesh,216,Rust
+100,Light Salmon,FEBABD,125,Light Orange,161,Light Salmon,125,Light Salmon
+110,Bright Light Orange,F8BB3D,191,Flame Yellowish Orange,110,Bright Light Orange,191,Bright Light Orange
+112,Medium Orange,FFA70B,106,Bright Orange,68,Medium Orange,106,Medium Orange
+115,Bright Light Blue,99BBE8,212,Light Royal Blue,105,Bright Light Blue,212,Bright Light Blue
+118,Bright Light Yellow,F3E055,226,Cool Yellow,103,Bright Light Yellow,226,Bright Light Yellow
+120,Dark Terra Cotta,915046,121,Medium Reddish Orange,101,Dark Terra Cotta,121,Dark Terra Cotta
+125,Light Terra Cotta,D67572,125,Light Orange,102,Light Terra Cotta,125,Light Terra Cotta
+128,Dark Flesh,7C503A,216,Rust,91,Dark Flesh,216,Rust
+134,Very Light Orange,F3CF9B,,,160,Very Light Orange,
+135,Pearl Light Gold,DCBC81,297,Warm Gold,115,Pearl Light Gold,297,Pearl Light Gold
+137,Medium Terra Cotta,C68977,121,Medium Reddish Orange,100,Medium Terra Cotta,121,Medium Terra Cotta
+143,Blue-Violet,6874CA,196,Dark Royal Blue,97,Blue-Violet,196,Blue-Violet
+148,Dark Blue,19325A,140,Earth Blue,63,Dark Blue,140,Dark Blue
+150,Very Light Gray,E6E3DA,103,Light Grey,99,Very Light Gray,103,Very Light Gray
+151,Very Light Bluish Gray,E6E3DA,103,Light Grey,99,Very Light Gray,103,Very Light Gray
+158,Bright Pink,E4ADC8,113,Medium Reddish Violet,104,Bright Pink,113,Bright Pink
+178,Flat Dark Gold,B48455,310,Metalized Gold,81,Flat Dark Gold,310,Flat Dark Gold
+179,Flat Silver,898788,315,Silver Metallic,95,Flat Silver,315,Flat Silver
+182,Trans-Light Orange,FC9E43,182,Transparent Bright Orange,164,Trans-Light Orange,182,Trans-Light Orange
+183,Pearl White,F2F3F2,1,White,83,Pearl White,1,Pearl White
+191,Bright Light Orange,F8BB3D,191,Flame Yellowish Orange,110,Bright Light Orange,191,Bright Light Orange
+212,Bright Light Blue,99BBE8,212,Light Royal Blue,105,Bright Light Blue,212,Bright Light Blue
+216,Rust,B31004,216,Rust,27,Rust,216,Rust
+226,Bright Light Yellow,F3E055,226,Cool Yellow,103,Bright Light Yellow,226,Bright Light Yellow
+230,Pink,FC97AC,16,Pink,23,Pink,16,Pink
+232,Sky Blue,A5C4DB,102,Medium Blue,87,Sky Blue,102,Sky Blue
+272,Dark Blue-Violet,1E5AA8,140,Earth Blue,109,Dark Blue-Violet,140,Dark Blue-Violet
+288,Dark Oatmeal,7C503A,138,Sand Yellow,112,Dark Oatmeal,138,Dark Oatmeal
+297,Pearl Gold,AA7F2E,297,Warm Gold,115,Pearl Gold,297,Pearl Gold
+308,Dark Brown,352100,308,Dark Brown,120,Dark Brown,308,Dark Brown
+313,Maersk Blue,3592C3,13,Pastel Blue,42,Maersk Blue,13,Maersk Blue
+320,Dark Azure,3399FF,321,Dark Azure,153,Dark Azure,321,Dark Azure
+321,Dark Azure,3399FF,321,Dark Azure,153,Dark Azure,321,Dark Azure
+322,Medium Azure,36AEBF,322,Medium Azure,156,Medium Azure,322,Medium Azure
+323,Light Azure,47BCC3,323,Light Azure,152,Light Azure,323,Light Azure
+326,Olive Green,77774E,326,Olive Green,155,Olive Green,326,Olive Green
+334,Medium Nougat,AA7D55,312,Medium Nougat,150,Medium Nougat,312,Medium Nougat
+335,Sand Red,88605E,151,Sand Red,58,Sand Red,151,Sand Red
+351,Medium Blue,7396C8,102,Medium Blue,72,Medium Blue,102,Medium Blue
+366,Earth Blue,19325A,140,Earth Blue,63,Earth Blue,140,Earth Blue
+373,Sand Blue,70819A,135,Sand Blue,55,Sand Blue,135,Sand Blue
+378,Sand Green,708E7C,151,Sand Green,48,Sand Green,151,Sand Green
+379,Sand Purple,845E84,212,Sand Violet,54,Sand Purple,212,Sand Purple
+383,Chrome Silver,E0E0E0,309,Metalized Silver,22,Chrome Silver,309,Chrome Silver
+450,Fabuland Brown,B67B50,,,106,Fabuland Brown,
+462,Medium Orange,FFA70B,106,Bright Orange,68,Medium Orange,106,Medium Orange
+484,Dark Orange,A95500,38,Dark Orange,68,Dark Orange,38,Dark Orange
+503,Very Light Gray,E6E3DA,103,Light Grey,99,Very Light Gray,103,Very Light Gray
+1000,Glow In Dark White,D9D9D9,159,Glow In Dark White,159,Glow In Dark White,159,Glow In Dark White
+1001,Glow In Dark Opaque,E4EAD3,159,Glow In Dark White,46,Glow In Dark Opaque,159,Glow In Dark Opaque
+1002,Glow in Dark Trans,BDC6AD,159,Glow In Dark White,46,Glow in Dark Trans,159,Glow in Dark Trans
+1003,Glitter Trans-Dark Pink,DF6695,114,Glitter Trans-Dark Pink,101,Glitter Trans-Dark Pink,114,Glitter Trans-Dark Pink
+1004,Glitter Trans-Light Blue,68BCC5,117,Glitter Trans-Light Blue,102,Glitter Trans-Light Blue,117,Glitter Trans-Light Blue
+1005,Glitter Trans-Purple,645A4C,111,Glitter Trans-Purple,163,Glitter Trans-Purple,111,Glitter Trans-Purple
+1006,Glitter Trans-Clear,FFFFFF,114,Glitter Trans-Clear,101,Glitter Trans-Clear,114,Glitter Trans-Clear
+1007,Trans-Speckled Black,635F52,114,Trans-Speckled Black,111,Trans-Speckled Black,114,Trans-Speckled Black
+1008,Chrome Antique Copper,645A4C,307,Chrome Antique Copper,82,Chrome Antique Copper,307,Chrome Antique Copper
+1009,Chrome Gold,BBA53D,310,Metalized Gold,21,Chrome Gold,310,Chrome Gold
+1010,Chrome Silver,E0E0E0,309,Metalized Silver,22,Chrome Silver,309,Chrome Silver
+1011,Chrome Black,1B2A34,309,Chrome Black,122,Chrome Black,309,Chrome Black
+1012,Chrome Blue,1E5AA8,309,Chrome Blue,52,Chrome Blue,309,Chrome Blue
+1013,Chrome Green,237841,309,Chrome Green,64,Chrome Green,309,Chrome Green
+1014,Chrome Pink,AA4D8E,309,Chrome Pink,114,Chrome Pink,309,Chrome Pink
+1015,Chrome Red,C91A09,309,Chrome Red,59,Chrome Red,309,Chrome Red
+1016,Pearl White,F2F3F2,1,White,83,Pearl White,1,Pearl White
+1017,Pearl Very Light Gray,BBBCBC,103,Light Grey,119,Pearl Very Light Gray,103,Pearl Very Light Gray
+1018,Pearl Light Gray,9BA19D,315,Silver Metallic,66,Pearl Light Gray,315,Pearl Light Gray
+1019,Pearl Dark Gray,575857,316,Titanium Metallic,77,Pearl Dark Gray,316,Pearl Dark Gray
+1020,Pearl Black,1B2A34,316,Pearl Black,118,Pearl Black,316,Pearl Black
+1021,Pearl Light Gold,DCBC81,297,Warm Gold,115,Pearl Light Gold,297,Pearl Light Gold
+1022,Pearl Gold,AA7F2E,297,Warm Gold,115,Pearl Gold,297,Pearl Gold
+1023,Pearl Dark Gold,B48455,310,Metalized Gold,81,Pearl Dark Gold,310,Pearl Dark Gold
+1024,Pearl Light Nougat,B67B50,283,Light Nougat,106,Pearl Light Nougat,283,Pearl Light Nougat
+1025,Pearl Nougat,AA7D55,312,Medium Nougat,150,Pearl Nougat,312,Pearl Nougat
+1026,Pearl Sand Blue,70819A,135,Sand Blue,55,Pearl Sand Blue,135,Pearl Sand Blue
+1027,Metallic Silver,898788,315,Silver Metallic,67,Metallic Silver,315,Metallic Silver
+1028,Metallic Gold,BBA53D,310,Metalized Gold,65,Metallic Gold,310,Metallic Gold
+1029,Metallic Copper,764D3B,310,Metallic Copper,70,Metallic Copper,310,Metallic Copper
+1030,Metallic Green,237841,310,Metallic Green,108,Metallic Green,310,Metallic Green
+1031,Metallic Blue,1E5AA8,310,Metallic Blue,111,Metallic Blue,310,Metallic Blue
+1032,Milky White,F2F3F2,1,White,60,Milky White,1,Milky White
