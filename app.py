@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.6.5 - DISCOVERY RESTORED"
+VERSION = "5.6.7 - DEEP DISCOVERY RESTORED"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -42,6 +42,7 @@ if 'color_map' not in st.session_state:
 def load_parts_catalog():
     if os.path.exists("Parts.txt"):
         try:
+            # Matches Column 2 (ID) and Column 3 (Description) from Parts.txt [cite: 4]
             df = pd.read_csv("Parts.txt", sep='\t', encoding='latin1', on_bad_lines='skip')
             return dict(zip(df.iloc[:, 2].astype(str), df.iloc[:, 3]))
         except: return {}
@@ -78,7 +79,7 @@ st.set_page_config(page_title=f"LEGO Auditor v{VERSION}", layout="wide")
 st.markdown("""
     <style>
     .trainer-card { background-color: #1e1b4b; padding: 25px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 20px; color: white; }
-    .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; font-weight: bold; }
+    .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; font-size: 1.1rem; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     .missing-text { color: #f87171; font-weight: bold; font-size: 0.6rem; text-align: center; display: block; margin-bottom: 5px; line-height: 1.1; }
@@ -172,15 +173,12 @@ try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
-    # Sync Tracking
+    # Tracking for Sidebar Stats
     xml_color_ids = {str(item.find("COLOR").text) for item in items if item.find("COLOR") is not None}
     matched_colors = [c for c in xml_color_ids if c in st.session_state.color_map]
     unmatched_colors = [c for c in xml_color_ids if c not in st.session_state.color_map]
     
     st.sidebar.info(f"🎨 **Color Registry Check**\n\n✅ Matched: {len(matched_colors)}\n❌ Missing: {len(unmatched_colors)}")
-    if unmatched_colors:
-        with st.sidebar.expander("⚠️ View Missing Color IDs"):
-            st.write(sorted(unmatched_colors))
 
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
     container_contents = defaultdict(list)
@@ -190,7 +188,7 @@ try:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             rem = rem_node.text.strip()
-            # Logic to extract Drawer ID and Holes for part mapping
+            # Regex for Prefix + Number + Optional Hole 
             m = re.search(r'^([A-Za-z]*)\s*(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', rem)
             if m:
                 pref, num, h_raw = m.groups()
@@ -209,15 +207,15 @@ try:
                     container_stats[norm_id][h]["conds"].add(cond)
                     container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # RESTORED: Part Finder logic to map colors to specific parts/drawers
+    # RESTORED: Deep Search Logic for Discovery
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
             if len(stats['color_ids']) == 1:
                 target_cid = list(stats['color_ids'])[0]
                 for content in container_contents[loc_id]:
-                    # Match items to specific holes for cleaner suggestions
+                    # Map unique color instances to parts and physical locations 
                     if content['h'] == str(hole_num) or (content['h'] == "1" and hole_num == 1):
-                        clue_str = f"<b>{content['name']}</b> @ 📍 <b>{loc_id}{' ('+str(hole_num)+')' if hole_num > 1 else ''}</b>"
+                        clue_str = f"<b>{content['name']}</b> found at 📍 <b>{loc_id}{' ('+str(hole_num)+')' if hole_num > 1 else ''}</b>"
                         if clue_str not in pure_clues_map[target_cid]:
                             pure_clues_map[target_cid].append(clue_str)
 
@@ -226,26 +224,26 @@ try:
         all_xml_cids = sorted(list(set(pure_clues_map.keys())), key=lambda x: int(x) if x.isdigit() else 999)
         unknowns = [c for c in all_xml_cids if c not in st.session_state.color_map]
         
-        # RESTORED: Discovery Zone (Part Finder)
+        # RESTORED Discovery Zone 
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
-            st.subheader("🔍 Discovery Zone (Part Finder)")
+            st.subheader("🔍 Discovery Zone: Identify Missing Colors")
             target_cid = unknowns[0]
             clues = pure_clues_map[target_cid]
             if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
             
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col1:
-                st.metric("ID to Identify", target_cid)
-                if st.button("⏭️ NEXT PURE CLUE"):
+            c1, c2, c3 = st.columns([1, 2, 1])
+            with c1:
+                st.metric("Missing ID", target_cid)
+                if st.button("⏭️ Next Clue"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
-            with col2:
-                train_name = st.text_input(f"Register Friendly Name:", key=f"reg_train_{st.session_state.reset_key}")
-                st.markdown(f"<div class='clue-box'>FOUND: {clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
-            with col3:
+            with c2:
+                train_name = st.text_input("Enter Color Name:", key=f"train_{st.session_state.reset_key}")
+                st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
+            with c3:
                 st.write("")
-                if st.button("💾 SAVE TO REGISTRY", use_container_width=True):
+                if st.button("💾 Save to Registry", use_container_width=True):
                     if train_name:
                         st.session_state.color_map[target_cid] = train_name
                         save_registry(st.session_state.color_map)
@@ -253,11 +251,17 @@ try:
                         trigger_reset(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        st.subheader("🎨 Swatch Gallery & Image Audit")
+        # Swatch Audit Header
+        h1, h2 = st.columns([2, 1])
+        with h1: st.subheader("🎨 Swatch Gallery & Image Audit")
+        with h2: reg_search = st.text_input("🔍 Search Registry...", placeholder="ID or Name")
+
         if st.session_state.color_map:
-            sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
+            all_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
+            filtered = [c for c in all_cids if reg_search.lower() in c.lower() or reg_search.lower() in st.session_state.color_map[c].lower()] if reg_search else all_cids
+
             cols = st.columns(15) 
-            for i, cid in enumerate(sorted_cids):
+            for i, cid in enumerate(filtered):
                 with cols[i % 15]:
                     try: padded = f"{int(cid):03d}"
                     except: padded = cid
@@ -266,20 +270,10 @@ try:
                     if os.path.exists(img_path):
                         st.image(img_path, use_container_width=True)
                     else:
-                        st.markdown(f"<span class='missing-text'>NO IMG<br>{padded}</span>", unsafe_allow_html=True)
+                        st.markdown(f"<span class='missing-text'>NO IMAGE<br>{padded}</span>", unsafe_allow_html=True)
                     
                     st.markdown(f"<p style='font-size:0.55rem; font-weight:bold; line-height:1; margin:0;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
                     st.caption(f"ID: {cid}")
-
-        with st.expander("⌨️ Manual Entry"):
-            m1, m2 = st.columns(2)
-            mid = m1.text_input("ID #", key=f"man_id_{st.session_state.reset_key}")
-            mna = m2.text_input("Name", key=f"man_na_{st.session_state.reset_key}")
-            if st.button("Manual Save"):
-                if mid and mna:
-                    st.session_state.color_map[str(mid)] = mna
-                    save_registry(st.session_state.color_map)
-                    trigger_reset(); st.rerun()
 
     # --- MODE: GAP AUDITOR ---
     elif app_mode == "Gap Auditor":
@@ -308,9 +302,8 @@ try:
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
         if not conflicts:
-            st.success("✅ Consistent: No containers have mixed condition (New/Used) within the same hole.")
+            st.success("✅ Consistent Conditions.")
         else:
-            st.error(f"Found {len(conflicts)} containers with condition conflicts.")
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
                     for row in container_contents[c_id]:
