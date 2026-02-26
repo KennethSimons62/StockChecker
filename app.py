@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "4.0.0 - THE PROFILE COMMANDER"
+VERSION = "4.1.0"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -34,12 +34,11 @@ def get_profile_list():
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
     return sorted(files) if files else ["Default"]
 
-# --- 3. SESSION STATE (The Engine Room) ---
+# --- 3. SESSION STATE ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
 
 if 'temp_categories' not in st.session_state:
-    # Try to load existing file, otherwise use defaults
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
         with open(path, "r") as f:
@@ -64,22 +63,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. SIDEBAR: PROFILE COMMANDER ---
+# --- 5. SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
-st.sidebar.markdown(f"<div class='status-badge'><b>LIVE: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
+# NEW: Filters moved to the top
+st.sidebar.subheader("🔍 Search Filters")
+qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=0, help="Find holes with <= this many parts.")
+purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
+
+st.sidebar.markdown("---")
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard"])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Profile Commander")
 
-# Profile Selector
 profiles = get_profile_list()
-col_p1, col_p2 = st.sidebar.columns([3, 1])
-with col_p1:
-    selected_p = st.selectbox("Load Profile", profiles, index=profiles.index(st.session_state.active_profile) if st.session_state.active_profile in profiles else 0)
-with col_p2:
-    if st.button("🔄", help="Refresh list"): st.rerun()
+selected_p = st.sidebar.selectbox("Load Profile", profiles, index=profiles.index(st.session_state.active_profile) if st.session_state.active_profile in profiles else 0)
 
 if selected_p != st.session_state.active_profile:
     st.session_state.active_profile = selected_p
@@ -89,51 +89,33 @@ if selected_p != st.session_state.active_profile:
             st.session_state.temp_categories = json.load(f)
     st.rerun()
 
-# Profile Naming / Creation
-new_profile_name = st.sidebar.text_input("Profile Name", value=st.session_state.active_profile)
-
-c1, c2 = st.sidebar.columns(2)
-with c1:
-    if st.button("💾 SAVE", use_container_width=True):
-        if new_profile_name:
-            path = os.path.join(PROFILE_DIR, f"{new_profile_name}.json")
-            with open(path, "w") as f:
-                json.dump(st.session_state.temp_categories, f, indent=4)
-            st.session_state.active_profile = new_profile_name
-            st.sidebar.success(f"Saved: {new_profile_name}")
-            st.rerun()
-with c2:
-    if st.button("🗑️ DELETE", use_container_width=True):
-        path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
-        if os.path.exists(path) and st.session_state.active_profile != "Default":
-            os.remove(path)
-            st.session_state.active_profile = "Default"
-            st.rerun()
+new_profile_name = st.sidebar.text_input("Save As New Name", value=st.session_state.active_profile)
+if st.sidebar.button("💾 SAVE PROFILE", use_container_width=True):
+    if new_profile_name:
+        path = os.path.join(PROFILE_DIR, f"{new_profile_name}.json")
+        with open(path, "w") as f:
+            json.dump(st.session_state.temp_categories, f, indent=4)
+        st.session_state.active_profile = new_profile_name
+        st.sidebar.success(f"Saved: {new_profile_name}")
+        st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🛠️ Storage Sections")
+st.sidebar.subheader("🛠️ Layout Editor")
 
-# Storage Section Adder
-if st.sidebar.button("➕ Add New Storage Category"):
+if st.sidebar.button("➕ Add Category"):
     st.session_state.temp_categories.append({"name": "New Section", "prefix": "X", "start": 1, "end": 10, "cap": 1})
     st.rerun()
 
-# The Editor Loop
 for i, cat in enumerate(st.session_state.temp_categories):
     with st.sidebar.expander(f"📁 {cat['name']}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"l_{i}")
         st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"p_{i}")
-        st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"s_{i}")
-        st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"e_{i}")
+        st.session_state.temp_categories[i]['start'] = st.number_input("Start", value=int(cat['start']), key=f"s_{i}")
+        st.session_state.temp_categories[i]['end'] = st.number_input("End", value=int(cat['end']), key=f"e_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes", value=int(cat['cap']), key=f"c_{i}")
-        if st.button("🗑️ Remove Section", key=f"del_sec_{i}"):
+        if st.button("🗑️ Remove", key=f"rem_{i}"):
             st.session_state.temp_categories.pop(i)
             st.rerun()
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔍 Filters")
-qty_threshold = st.sidebar.number_input("Max Density (Qty)", min_value=0, value=0)
-purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "New Only", "Used Only"])
 
 # --- 6. CORE LOGIC ---
 def get_clean_id(prefix, number):
@@ -163,7 +145,7 @@ def parse_holes(expr):
 st.title(f"🧱 {app_mode}")
 
 if st.session_state.xml_data is None:
-    st.info("Please upload your 'store.xml' to start the audit.")
+    st.info("Please upload your 'store.xml' to start.")
     uploaded_xml = st.file_uploader("Upload store.xml:", type="xml")
     if uploaded_xml:
         st.session_state.xml_data = uploaded_xml.getvalue()
@@ -247,10 +229,10 @@ try:
                                 st.markdown(grid + "</div>", unsafe_allow_html=True)
                             else:
                                 m = unit_matches[1]
-                                st.write(f"Density: **{m['qty']}** | Purity: **{m['purity']}**")
+                                st.write(f"Qty: **{m['qty']}** | Condition: **{m['purity']}**")
 
                 if match_count == 0:
-                    st.warning("No matches found in this category.")
+                    st.warning("No matches found.")
 
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]

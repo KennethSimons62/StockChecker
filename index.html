@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hub | LEGO Master Auditor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --lego-red: #ff4b4b;
+            --lego-blue: #3b82f6;
             --bg: #0f172a;
-            --text-secondary: #94a3b8;
+            --card: rgba(30, 41, 59, 0.7);
         }
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top right, #1e293b, var(--bg));
             color: #ffffff;
             display: flex;
             align-items: center;
@@ -21,85 +23,88 @@
             margin: 0;
             overflow: hidden;
         }
-        .card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(15px);
-            padding: 3.5rem;
-            border-radius: 28px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .container {
             text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-            max-width: 400px;
+            background: var(--card);
+            backdrop-filter: blur(15px);
+            padding: 60px;
+            border-radius: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
             width: 90%;
         }
-        .version-badge {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-secondary);
-            display: inline-block;
-            margin-bottom: 1rem;
-        }
-        h1 {
-            font-size: 2.2rem;
-            margin: 0.5rem 0;
-            background: linear-gradient(to right, #ffffff, #cbd5e1);
+        .logo {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, var(--lego-red), #ff7b7b);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .dev-info {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            margin-bottom: 2.5rem;
+        .version {
+            font-family: monospace;
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--lego-blue);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-bottom: 30px;
         }
-        .dev-info span {
-            color: var(--lego-red);
-            font-weight: 600;
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
-        .container { display: flex; flex-direction: column; gap: 15px; }
         .btn {
             text-decoration: none;
-            padding: 16px 32px;
-            font-size: 1rem;
+            padding: 18px 32px;
+            font-size: 1.1rem;
             font-weight: 600;
-            border-radius: 14px;
-            transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 16px;
+            transition: all 0.3s ease;
             display: block;
         }
-        .btn-app {
+        .btn-primary {
             background: var(--lego-red);
             color: white;
-            box-shadow: 0 4px 15px rgba(255, 75, 75, 0.3);
+            box-shadow: 0 10px 20px -5px rgba(255, 75, 75, 0.4);
         }
-        .btn-app:hover {
+        .btn-primary:hover {
+            transform: translateY(-3px);
             background: #ff3333;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 75, 75, 0.5);
+            box-shadow: 0 15px 30px -5px rgba(255, 75, 75, 0.6);
         }
-        .btn-readme {
+        .btn-secondary {
             background: rgba(255, 255, 255, 0.05);
-            color: white;
+            color: #94a3b8;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .btn-readme:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateY(-2px);
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 0.8rem;
+            color: #64748b;
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="version-badge">v1.8.2</div>
-        <h1>Master Auditor</h1>
-        <p class="dev-info">Developer: <span>Kenneth Simons</span> (Mr Brick UK)</p>
+    <div class="container">
+        <div class="logo">LEGO Auditor</div>
+        <div class="version">v4.1.0</div>
         
-        <div class="container">
-            <a href="https://stockchecker-kztjgnzu2zswhfk9dzcvpe.streamlit.app/" class="btn btn-app" target="_blank">🚀 Launch App</a>
-            
-            <a href="readme.html" class="btn btn-readme">📖 Documentation</a>
+        <div class="btn-group">
+            <a href="http://localhost:8501" target="_blank" class="btn btn-primary">Launch Application</a>
+            <a href="readme.html" class="btn btn-secondary">View Documentation</a>
+        </div>
+
+        <div class="footer">
+            Designed for high-volume resellers<br>
+            Developed by Kenneth Simons
         </div>
     </div>
 </body>
