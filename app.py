@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.9.0 - GUARD REPORT FIX"
+VERSION = "6.1.2 - TOTAL SYSTEM RESTORE"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -144,7 +144,7 @@ for i in range(len(st.session_state.temp_categories)):
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"cap_{i}")
 
 if st.sidebar.button("➕ ADD CATEGORY"):
-    st.session_state.temp_categories.append({"name": "New Storage", "prefix": "X", "start": 1, "end": 1, "cap": 1})
+    st.session_state.temp_categories.append({"name": "New Storage", "prefix": "X", "start": 1, "end": 10, "cap": 1})
     st.rerun()
 
 if len(st.session_state.temp_categories) > 1:
@@ -169,14 +169,12 @@ def parse_holes(expr):
     clean = str(expr).replace('/', '-').replace('\\', '-').replace(' ', '')
     for p in re.split(r'[,;]+', clean):
         if not p: continue
-        if '-' in p:
-            try:
+        try:
+            if '-' in p:
                 pts = p.split('-')
                 holes.update(range(int(pts[0]), int(pts[1]) + 1))
-            except: continue
-        else:
-            try: holes.add(int(p))
-            except: continue
+            else: holes.add(int(p))
+        except: continue
     return holes if holes else {1}
 
 # --- 7. MAIN CONTENT FLOW ---
@@ -194,8 +192,7 @@ try:
     root = ET.fromstring(st.session_state.xml_data)
     items = root.findall(".//ITEM")
 
-    container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
-    container_contents = defaultdict(list)
+    container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set(), "raw_items": []}))
     pure_clues_map = defaultdict(list)
 
     for item in items:
@@ -216,28 +213,26 @@ try:
                     p_id = item.find("ITEMID").text
                     p_name = CATALOG_LOOKUP.get(p_id, f"Part {p_id}")
                     
-                    container_contents[norm_id].append({
-                        "id": p_id, "name": p_name, "cid": cid, 
-                        "cond": cond, "qty": qty, "h": h_raw or "1"
-                    })
-                    
                     h_set = parse_holes(h_raw)
                     for h in h_set:
                         container_stats[norm_id][h]["qty"] += qty
                         container_stats[norm_id][h]["conds"].add(cond)
                         container_stats[norm_id][h]["color_ids"].add(cid)
+                        container_stats[norm_id][h]["raw_items"].append({
+                            "id": p_id, "name": p_name, "cid": cid, "cond": cond, "qty": qty
+                        })
 
     # Clue extraction for Discovery Zone
     for loc_id, hs in container_stats.items():
         for h_n, stats in hs.items():
             for t_cid in stats['color_ids']:
                 if t_cid not in st.session_state.color_map:
-                    for content in container_contents[loc_id]:
-                        if str(content['h']) == str(h_n) or (content['h'] == "1" and h_n == 1):
+                    for content in stats["raw_items"]:
+                        if content['cid'] == t_cid:
                             clue = f"<b>{content['name']}</b> at 📍 <b>{loc_id}{' ('+str(h_n)+')' if h_n > 1 else ''}</b>"
                             if clue not in pure_clues_map[t_cid]: pure_clues_map[t_cid].append(clue)
 
-    # --- GAP AUDITOR MODE ---
+    # --- MODE: GAP AUDITOR ---
     if app_mode == "Gap Auditor":
         tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
         for idx, cat in enumerate(st.session_state.temp_categories):
@@ -251,8 +246,7 @@ try:
                     umatches = {}
                     
                     for h in range(1, cap + 1):
-                        hinfo = udata.get(h, {"qty": 0, "conds": set(), "color_ids": set()})
-                        
+                        hinfo = udata.get(h, {"qty": 0, "conds": set()})
                         if hinfo["qty"] == 0: c_state = "EMPTY"
                         elif len(hinfo["conds"]) > 1: c_state = "MIXED"
                         elif "N" in hinfo["conds"]: c_state = "NEW"
@@ -264,9 +258,7 @@ try:
                                (purity_filter == "NEW Only" and c_state == "NEW") or \
                                (purity_filter == "USED Only" and c_state == "USED") or \
                                (purity_filter == "Mixed Only" and c_state == "MIXED"):
-                                
-                                h_contents = [i for i in container_contents[uid] if str(i['h']) == str(h) or (i['h'] == "1" and h == 1)]
-                                umatches[h] = {"qty": hinfo["qty"], "state": c_state, "items": h_contents}
+                                umatches[h] = {"qty": hinfo["qty"], "state": c_state, "items": hinfo.get("raw_items", [])}
                     
                     if umatches:
                         total_p = sum(m['qty'] for m in umatches.values())
@@ -279,47 +271,44 @@ try:
                                 else: c_html = "<span class='mixed-alert'>MIXED</span>"
 
                                 st.markdown(f"**📍 Slot {h_n}** | {c_html}", unsafe_allow_html=True)
-                                if data['items']:
-                                    for item in data['items']:
-                                        c_n = st.session_state.color_map.get(item['cid'], f"Code {item['cid']}")
-                                        st.markdown(f"<div class='part-row'><b>{item['qty']}x</b> {item['name']}<br><i>{c_n} [{item['cond']}]</i></div>", unsafe_allow_html=True)
+                                for item in data['items']:
+                                    c_n = st.session_state.color_map.get(item['cid'], f"Code {item['cid']}")
+                                    st.markdown(f"<div class='part-row'><b>{item['qty']}x</b> {item['name']}<br><i>{c_n} [{item['cond']}]</i></div>", unsafe_allow_html=True)
                                 st.markdown("---")
 
-    # --- CONDITION GUARD MODE ---
+    # --- MODE: CONDITION GUARD ---
     elif app_mode == "Condition Guard":
-        conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts: st.success("✅ No Mixed Conditions Found.")
-        else:
-            for c_id in sorted(conflicts):
-                with st.expander(f"🔴 Conflict in Location: {c_id}"):
-                    # Group contents by condition for cleaner reporting
-                    new_items = [r for r in container_contents[c_id] if r['cond'] == 'N']
-                    used_items = [r for r in container_contents[c_id] if r['cond'] == 'U']
-                    
-                    if new_items:
-                        st.markdown("<p class='new-label'>NEW Parts Found:</p>", unsafe_allow_html=True)
-                        for row in new_items:
-                            c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
-                            st.markdown(f"* **{row['qty']}x** {row['name']} — {c_n} (ID: {row['cid']})")
-                    
-                    if used_items:
-                        st.markdown("<p class='used-label'>USED Parts Found:</p>", unsafe_allow_html=True)
-                        for row in used_items:
-                            c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
-                            st.markdown(f"* **{row['qty']}x** {row['name']} — {c_n} (ID: {row['cid']})")
+        st.subheader("⚠️ Unit-Level Condition Audit")
+        found_issue = False
+        for unit_id in sorted(container_stats.keys()):
+            unit_conds = set()
+            slot_issues = []
+            for h_n, h_data in container_stats[unit_id].items():
+                unit_conds.update(h_data["conds"])
+                if len(h_data["conds"]) > 1:
+                    slot_issues.append(f"🔴 **Slot {h_n}** contains both NEW and USED items.")
+            
+            if len(unit_conds) > 1:
+                found_issue = True
+                with st.expander(f"❌ Unit Conflict: {unit_id} (Mixed NEW/USED contents)"):
+                    for issue in slot_issues: st.markdown(issue)
+                    for h_n, h_data in container_stats[unit_id].items():
+                        for itm in h_data["raw_items"]:
+                            c_l = "NEW" if itm['cond'] == 'N' else "USED"
+                            cl_n = st.session_state.color_map.get(itm['cid'], itm['cid'])
+                            st.markdown(f"**Slot {h_n}:** {itm['qty']}x {itm['name']} ({cl_n}) — **{c_l}**")
+        if not found_issue: st.success("✅ All storage units are condition-pure.")
 
-    # --- COLOR REGISTRY MODE ---
+    # --- MODE: COLOR REGISTRY ---
     elif app_mode == "Color Registry":
         all_found = sorted(list(pure_clues_map.keys()), key=lambda x: int(x) if x.isdigit() else 999)
         unknowns = [c for c in all_found if c not in st.session_state.color_map]
-        
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Discovery Zone")
             target = unknowns[0]
             clues = pure_clues_map[target]
             if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
-            
             c1, c2, c3 = st.columns([1, 2, 1])
             with c1: st.metric("Missing ID", target)
             with c2: 
@@ -329,7 +318,6 @@ try:
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
             with c3:
-                st.write("")
                 if st.button("💾 Save to Registry", use_container_width=True):
                     if t_name:
                         st.session_state.color_map[target] = t_name
@@ -341,7 +329,6 @@ try:
         h1, h2 = st.columns([2, 1])
         with h1: st.subheader("🎨 Swatch Gallery")
         with h2: search = st.text_input("🔍 Search Registry...", placeholder="ID or Name")
-        
         if st.session_state.color_map:
             all_c = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             filt = [c for c in all_c if search.lower() in c or search.lower() in st.session_state.color_map[c].lower()] if search else all_c
