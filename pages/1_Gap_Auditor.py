@@ -1,26 +1,23 @@
 import streamlit as st
+import xml.etree.ElementTree as ET
+import re
+import json
+import os  # <--- This was the missing piece causing your error
+import pandas as pd
+from collections import defaultdict
 
-# (Previous imports stay the same)
+# --- 1. PAGE CONFIG & SLEEK NAV ---
+st.set_page_config(page_title="Gap Auditor", page_icon="🔍", layout="wide")
 
-st.set_page_config(page_title="Gap Auditor", page_icon="🔍")
-
-# --- NAVIGATION HEADER ---
-h1, h2, h3, h4 = st.columns(4)
-with h1: st.page_link("app.py", label="Home Hub", icon="🏠")
-with h2: st.page_link("pages/1_Gap_Auditor.py", label="Auditor", icon="🔍")
-with h3: st.page_link("pages/2_Color_Registry.py", label="Colors", icon="🎨")
-with h4: st.page_link("pages/3_Condition_Guard.py", label="Guard", icon="⚠️")
-
+# Minimalist Navigation Bar (No black boxes)
+nav_cols = st.columns(4)
+nav_cols[0].page_link("app.py", label="HOME HUB", icon="🏠")
+nav_cols[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
+nav_cols[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
+nav_cols[3].page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
 st.divider()
 
-# --- OPTIONAL: LOAD XML ON THIS PAGE TOO ---
-with st.expander("📥 Quick Load/Change XML"):
-    new_xml = st.file_uploader("Upload new store.xml", type="xml", key="gap_upload")
-    if new_xml:
-        st.session_state.xml_data = new_xml.getvalue()
-        st.rerun()
-
-# --- 1. ASSETS & CONFIG ---
+# --- 2. ASSETS & DIRECTORY CHECKS ---
 REGISTRY_FILE = "color_registry.json"
 PROFILE_DIR = "lego_profiles"
 
@@ -47,33 +44,23 @@ def load_parts_catalog():
 COLOR_MAP = load_registry()
 CATALOG_LOOKUP = load_parts_catalog()
 
-# --- 2. SESSION STATE & PROFILE LOGIC ---
+# --- 3. SESSION STATE & PROFILE COMMANDER ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
 
-def get_default_layout():
-    return [
-        {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
-        {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30},
-        {"name": "Cases (C)", "prefix": "C", "start": 1, "end": 180, "cap": 18},
-        {"name": "Drawers (D)", "prefix": "D", "start": 1, "end": 38, "cap": 24},
-        {"name": "Filing Cabinet", "prefix": "FC", "start": 1, "end": 2, "cap": 25}
-    ]
-
-# Initial Load
 if 'temp_categories' not in st.session_state:
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
         with open(path, "r") as f:
             st.session_state.temp_categories = json.load(f)
     else:
-        st.session_state.temp_categories = get_default_layout()
+        st.session_state.temp_categories = [
+            {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
+            {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30}
+        ]
 
-# --- 3. SIDEBAR: PROFILE COMMANDER & EDITOR ---
 with st.sidebar:
     st.header("📂 Profile Commander")
-    
-    # 3a. Load/Save Profiles
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
     profiles = sorted(files) if files else ["Default"]
     
@@ -93,24 +80,22 @@ with st.sidebar:
         with open(path, "w") as f:
             json.dump(st.session_state.temp_categories, f, indent=4)
         st.session_state.active_profile = new_p_name
-        st.success("Saved!")
+        st.success("Profile Saved!")
         st.rerun()
 
     st.markdown("---")
     st.header("🛠️ Layout Editor")
-    
-    # 3b. Dynamic Category Editing
     for i in range(len(st.session_state.temp_categories)):
         cat = st.session_state.temp_categories[i]
         with st.expander(f"📁 {cat['name']}"):
-            st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"gap_lab_{i}")
-            st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"gap_pre_{i}")
-            st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"gap_sta_{i}")
-            st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"gap_end_{i}")
-            st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"gap_cap_{i}")
+            st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"edit_lab_{i}")
+            st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"edit_pre_{i}")
+            st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"edit_sta_{i}")
+            st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"edit_end_{i}")
+            st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"edit_cap_{i}")
 
     if st.button("➕ ADD NEW STORAGE"):
-        st.session_state.temp_categories.append({"name": "New Category", "prefix": "X", "start": 1, "end": 10, "cap": 1})
+        st.session_state.temp_categories.append({"name": "New Storage", "prefix": "X", "start": 1, "end": 10, "cap": 1})
         st.rerun()
 
     if len(st.session_state.temp_categories) > 1:
@@ -120,15 +105,12 @@ with st.sidebar:
 
     st.markdown("---")
     st.header("🔍 Audit Filters")
-    # Default is now set to 0
-    qty_threshold = st.number_input("Max Qty to Show", min_value=0, value=0, help="0 shows only empty slots.")
+    qty_threshold = st.number_input("Max Qty to Show", min_value=0, value=0)
     purity_filter = st.selectbox("Condition Focus", ["Show All", "Empty Only", "NEW Only", "USED Only", "Mixed Only"])
 
-# --- 4. PAGE LOGIC ---
-st.header("🔍 Gap Auditor")
-
+# --- 4. DATA ENGINE ---
 if not st.session_state.get('xml_data'):
-    st.warning("Please upload a store.xml on the Home page.")
+    st.warning("⚪ No Store Data. Please go to the HOME HUB to upload your XML.")
     st.stop()
 
 def get_clean_id(prefix, number):
@@ -149,7 +131,6 @@ def parse_holes(expr):
         except: continue
     return holes if holes else {1}
 
-# --- 5. DATA ENGINE ---
 root = ET.fromstring(st.session_state.xml_data)
 items = root.findall(".//ITEM")
 
@@ -177,17 +158,17 @@ for item in items:
                         "name": p_name, "qty": qty, "cond": cond, "cid": item.find("COLOR").text
                     })
 
-# --- 6. RESULTS ---
+# --- 5. CLEAN RESULTS ---
+st.subheader("🔍 Gap Audit Results")
 tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
+
 for idx, cat in enumerate(st.session_state.temp_categories):
     with tabs[idx]:
         pref, cap = str(cat['prefix']).upper().strip(), int(cat['cap'])
-        
         for n in range(int(cat['start']), int(cat['end']) + 1):
             uid = get_clean_id(pref, n)
             udata = container_stats.get(uid, {})
             umatches = {}
-            
             for h in range(1, cap + 1):
                 hinfo = udata.get(h, {"qty": 0, "conds": set()})
                 if hinfo["qty"] == 0: c_state = "EMPTY"
@@ -201,10 +182,12 @@ for idx, cat in enumerate(st.session_state.temp_categories):
             
             if umatches:
                 total_parts = sum(m['qty'] for m in umatches.values())
+                icon = "🆓" if total_parts == 0 else "🧱"
                 label = "EMPTY" if total_parts == 0 else f"{total_parts} Parts"
-                with st.expander(f"📦 {pref}{n} — [{label}]"):
+                
+                with st.expander(f"{icon} {pref}{n} — [{label}]"):
                     for h_n, data in umatches.items():
-                        st.write(f"**📍 Slot {h_n}** | {data['state']}")
+                        st.markdown(f"**📍 Slot {h_n}** | `{data['state']}`")
                         for itm in data['items']:
                             c_name = COLOR_MAP.get(itm['cid'], f"Color {itm['cid']}")
                             st.write(f"  * {itm['qty']}x {itm['name']} ({c_name})")
