@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.7.1 - FULL GAP + PART SUMMARY"
+VERSION = "5.8.6 - SIDEBAR RESTORE"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -49,10 +49,12 @@ def load_parts_catalog():
 
 CATALOG_LOOKUP = load_parts_catalog()
 
-# --- 3. SESSION STATE ---
+# --- 3. SESSION STATE & PROFILE LOGIC ---
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
-if 'temp_categories' not in st.session_state:
+
+# REINFORCED LOAD LOGIC
+def refresh_temp_categories():
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
         with open(path, "r") as f:
@@ -65,6 +67,10 @@ if 'temp_categories' not in st.session_state:
             {"name": "Drawers (D)", "prefix": "D", "start": 1, "end": 38, "cap": 24},
             {"name": "Filing Cabinet", "prefix": "FC", "start": 1, "end": 2, "cap": 25}
         ]
+
+if 'temp_categories' not in st.session_state:
+    refresh_temp_categories()
+
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
 if 'clue_index' not in st.session_state:
@@ -84,20 +90,23 @@ st.markdown("""
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; font-size: 1.1rem; font-weight: bold; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
-    .missing-text { color: #f87171; font-weight: bold; font-size: 0.6rem; text-align: center; display: block; margin-bottom: 5px; line-height: 1.1; }
-    .mixed-alert { color: #fbbf24; font-weight: bold; }
-    .empty-alert { color: #94a3b8; font-style: italic; }
+    .mixed-alert { color: #fbbf24; font-weight: bold; border: 1px solid #fbbf24; padding: 2px 5px; border-radius: 4px; }
+    .new-label { color: #4ade80; font-weight: bold; }
+    .used-label { color: #f87171; font-weight: bold; }
+    .empty-label { color: #94a3b8; font-style: italic; }
+    .part-row { font-size: 0.85rem; border-left: 2px solid #3b82f6; padding-left: 10px; margin-bottom: 5px; background: rgba(255,255,255,0.05); border-radius: 0 4px 4px 0; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 5. THE SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
-st.sidebar.markdown(f"<div class='status-badge'><b>LIVE VERSION: {VERSION}</b><br>Saved: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<div class='status-badge'><b>VERSION: {VERSION}</b></div>", unsafe_allow_html=True)
 
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard", "Color Registry"])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Profile Commander")
+
 def get_profile_list():
     files = [f.replace(".json", "") for f in os.listdir(PROFILE_DIR) if f.endswith(".json")]
     return sorted(files) if files else ["Default"]
@@ -107,43 +116,40 @@ selected_p = st.sidebar.selectbox("Load Profile", profiles, index=profiles.index
 
 if selected_p != st.session_state.active_profile:
     st.session_state.active_profile = selected_p
-    path = os.path.join(PROFILE_DIR, f"{selected_p}.json")
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            st.session_state.temp_categories = json.load(f)
+    refresh_temp_categories()
     st.rerun()
 
-new_p_name = st.sidebar.text_input("Profile Name", value=st.session_state.active_profile)
-if st.sidebar.button("💾 SAVE PROFILE"):
+new_p_name = st.sidebar.text_input("New Profile Name", value=st.session_state.active_profile)
+if st.sidebar.button("💾 SAVE CURRENT LAYOUT"):
     path = os.path.join(PROFILE_DIR, f"{new_p_name}.json")
     with open(path, "w") as f:
         json.dump(st.session_state.temp_categories, f, indent=4)
     st.session_state.active_profile = new_p_name
-    st.sidebar.success("Saved!")
+    st.sidebar.success(f"Profile '{new_p_name}' Saved!")
     st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
-for i, cat in enumerate(st.session_state.temp_categories):
-    with st.sidebar.expander(f"📁 {cat['name']}"):
+# This loop handles the visual inputs for your storage hardware
+for i in range(len(st.session_state.temp_categories)):
+    cat = st.session_state.temp_categories[i]
+    with st.sidebar.expander(f"📁 {cat['name'] or 'New Category'}"):
         st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"sidebar_lab_{i}")
         st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"sidebar_pre_{i}")
         st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sidebar_sta_{i}")
         st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"sidebar_end_{i}")
         st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"sidebar_cap_{i}")
 
-if app_mode in ["Gap Auditor", "Condition Guard"]:
+if app_mode == "Gap Auditor":
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🔍 Search Filters")
-    qty_threshold = st.sidebar.number_input("Max Qty to Audit (0 = Empty Only)", min_value=0, value=0)
-    purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "EMPTY", "NEW", "USED", "MIXED"])
+    st.sidebar.subheader("🔍 Audit Filters")
+    qty_threshold = st.sidebar.number_input("Max Qty to Audit", min_value=0, value=999)
+    purity_filter = st.sidebar.selectbox("Condition Focus", 
+        ["Show All", "Empty Only", "NEW Only", "USED Only", "Mixed Only"])
 
 # --- 6. CORE LOGIC HELPERS ---
 def get_clean_id(prefix, number):
-    try:
-        n = str(int(number))
-        p = prefix.upper().strip()
-        return f"{p}{n}"
+    try: return f"{prefix.upper().strip()}{int(number)}"
     except: return f"{prefix}{number}"
 
 def parse_holes(expr):
@@ -179,13 +185,12 @@ try:
 
     container_stats = defaultdict(lambda: defaultdict(lambda: {"qty": 0, "conds": set(), "color_ids": set()}))
     container_contents = defaultdict(list)
-    pure_clues_map = defaultdict(list) 
+    pure_clues_map = defaultdict(list)
 
     for item in items:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             raw_remarks = rem_node.text.strip()
-            # Multi-Location Splitter
             locations = re.split(r'[/\\,]', raw_remarks)
 
             for loc_str in locations:
@@ -211,7 +216,7 @@ try:
                         container_stats[norm_id][h]["conds"].add(cond)
                         container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # Discovery Zone logic
+    # Clue extraction for Discovery Zone
     for loc_id, hs in container_stats.items():
         for h_n, stats in hs.items():
             for t_cid in stats['color_ids']:
@@ -221,7 +226,7 @@ try:
                             clue = f"<b>{content['name']}</b> at 📍 <b>{loc_id}{' ('+str(h_n)+')' if h_n > 1 else ''}</b>"
                             if clue not in pure_clues_map[t_cid]: pure_clues_map[t_cid].append(clue)
 
-    # --- MODE: GAP AUDITOR ---
+    # --- GAP AUDITOR MODE ---
     if app_mode == "Gap Auditor":
         tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
         for idx, cat in enumerate(st.session_state.temp_categories):
@@ -237,102 +242,84 @@ try:
                     for h in range(1, cap + 1):
                         hinfo = udata.get(h, {"qty": 0, "conds": set(), "color_ids": set()})
                         
-                        # LOGIC: Show if it's perfectly empty OR if it has parts but stays under threshold
+                        if hinfo["qty"] == 0: c_state = "EMPTY"
+                        elif len(hinfo["conds"]) > 1: c_state = "MIXED"
+                        elif "N" in hinfo["conds"]: c_state = "NEW"
+                        else: c_state = "USED"
+
                         if hinfo["qty"] <= qty_threshold:
-                            if hinfo["qty"] == 0: cond_str = "EMPTY"
-                            elif len(hinfo["conds"]) > 1: cond_str = "MIXED"
-                            elif "N" in hinfo["conds"]: cond_str = "NEW"
-                            else: cond_str = "USED"
-                            
-                            if purity_filter == "Show All" or purity_filter == cond_str:
+                            if (purity_filter == "Show All") or \
+                               (purity_filter == "Empty Only" and c_state == "EMPTY") or \
+                               (purity_filter == "NEW Only" and c_state == "NEW") or \
+                               (purity_filter == "USED Only" and c_state == "USED") or \
+                               (purity_filter == "Mixed Only" and c_state == "MIXED"):
+                                
                                 h_contents = [i for i in container_contents[uid] if str(i['h']) == str(h) or (i['h'] == "1" and h == 1)]
-                                umatches[h] = {
-                                    "qty": hinfo["qty"],
-                                    "lots": len(h_contents),
-                                    "cond": cond_str,
-                                    "colors": [st.session_state.color_map.get(c, f"Code {c}") for c in hinfo["color_ids"]]
-                                }
+                                umatches[h] = {"qty": hinfo["qty"], "state": c_state, "items": h_contents}
                     
                     if umatches:
-                        with st.expander(f"📦 {pref}{n} — ({len(umatches)} hits)"):
+                        total_p = sum(m['qty'] for m in umatches.values())
+                        label = "EMPTY" if total_p == 0 else f"{total_p} Parts"
+                        with st.expander(f"📦 {pref}{n} — [{label}]"):
                             for h_n, data in umatches.items():
-                                if data['cond'] == "EMPTY":
-                                    st.markdown(f"**📍 Slot {h_n}:** <span class='empty-alert'>EMPTY / NO DATA</span>", unsafe_allow_html=True)
-                                else:
-                                    c_class = "mixed-alert" if data['cond'] == "MIXED" else ""
-                                    st.markdown(f"""
-                                    **📍 Slot {h_n}** | Condition: <span class='{c_class}'>{data['cond']}</span>  
-                                    📊 **Summary:** {data['qty']} Parts in {data['lots']} Lots  
-                                    🎨 **Colors:** {', '.join(data['colors'])}
-                                    """, unsafe_allow_html=True)
+                                if data['state'] == "EMPTY": c_html = "<span class='empty-label'>EMPTY</span>"
+                                elif data['state'] == "NEW": c_html = "<span class='new-label'>NEW</span>"
+                                elif data['state'] == "USED": c_html = "<span class='used-label'>USED</span>"
+                                else: c_html = "<span class='mixed-alert'>MIXED</span>"
+
+                                st.markdown(f"**📍 Slot {h_n}** | {c_html}", unsafe_allow_html=True)
+                                if data['items']:
+                                    for item in data['items']:
+                                        c_n = st.session_state.color_map.get(item['cid'], f"Code {item['cid']}")
+                                        st.markdown(f"<div class='part-row'><b>{item['qty']}x</b> {item['name']}<br><i>{c_n} [{item['cond']}]</i></div>", unsafe_allow_html=True)
                                 st.markdown("---")
 
-    # --- MODE: CONDITION GUARD ---
+    # --- OTHER MODES ---
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts: st.success("✅ Consistent Conditions.")
+        if not conflicts: st.success("✅ No Mixed Conditions.")
         else:
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
                     for row in container_contents[c_id]:
                         c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
-                        st.write(f"**{row['qty']}x** {row['name']} — {c_n} ({row['cid']}) [**{row['cond']}**]")
+                        st.write(f"**{row['qty']}x** {row['name']} — {c_n} [{row['cond']}]")
 
-    # --- MODE: COLOR REGISTRY ---
     elif app_mode == "Color Registry":
-        # Full Registry Logic
-        all_found_cids = sorted(list(pure_clues_map.keys()), key=lambda x: int(x) if x.isdigit() else 999)
-        unknowns = [c for c in all_found_cids if c not in st.session_state.color_map]
+        all_found = sorted(list(pure_clues_map.keys()), key=lambda x: int(x) if x.isdigit() else 999)
+        unknowns = [c for c in all_found if c not in st.session_state.color_map]
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Discovery Zone")
-            target_cid = unknowns[0]
-            clues = pure_clues_map[target_cid]
+            target = unknowns[0]
+            clues = pure_clues_map[target]
             if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
             c1, c2, c3 = st.columns([1, 2, 1])
-            with c1:
-                st.metric("Missing ID", target_cid)
-                if st.button("⏭️ Next Clue"):
-                    st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
-                    st.rerun()
-            with c2:
-                train_name = st.text_input("Enter Color Name:", key=f"train_{st.session_state.reset_key}")
+            with c1: st.metric("Missing ID", target)
+            with c2: 
+                t_name = st.text_input("Color Name:", key=f"t_{st.session_state.reset_key}")
                 st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
             with c3:
-                st.write("")
-                if st.button("💾 Save to Registry", use_container_width=True):
-                    if train_name:
-                        st.session_state.color_map[target_cid] = train_name
+                if st.button("💾 Save"):
+                    if t_name:
+                        st.session_state.color_map[target] = t_name
                         save_registry(st.session_state.color_map)
-                        st.session_state.clue_index = 0
                         trigger_reset(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
         h1, h2 = st.columns([2, 1])
         with h1: st.subheader("🎨 Swatch Gallery")
-        with h2: reg_search = st.text_input("🔍 Search Registry...", placeholder="ID or Name")
+        with h2: search = st.text_input("🔍 Search...")
         if st.session_state.color_map:
-            all_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
-            filtered = [c for c in all_cids if reg_search.lower() in c.lower() or reg_search.lower() in st.session_state.color_map[c].lower()] if reg_search else all_cids
-            cols = st.columns(15) 
-            for i, cid in enumerate(filtered):
-                with cols[i % 15]:
-                    try: padded = f"{int(cid):03d}"
-                    except: padded = cid
-                    img_path = os.path.join(IMAGE_DIR, f"{padded}.png")
-                    if os.path.exists(img_path): st.image(img_path, use_container_width=True)
-                    else: st.markdown(f"<span class='missing-text'>NO IMAGE<br>{padded}</span>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:0.55rem; font-weight:bold; line-height:1; margin:0;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
-                    st.caption(f"ID: {cid}")
-        with st.expander("⌨️ Manual Entry"):
-            m1, m2 = st.columns(2)
-            mid = m1.text_input("ID #", key=f"man_id_{st.session_state.reset_key}")
-            mna = m2.text_input("Name", key=f"man_na_{st.session_state.reset_key}")
-            if st.button("Manual Save"):
-                if mid and mna:
-                    st.session_state.color_map[str(mid)] = mna
-                    save_registry(st.session_state.color_map)
-                    trigger_reset(); st.rerun()
+            all_c = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
+            filt = [c for c in all_c if search.lower() in c or search.lower() in st.session_state.color_map[c].lower()] if search else all_c
+            cols = st.columns(12)
+            for i, cid in enumerate(filt):
+                with cols[i % 12]:
+                    img_p = os.path.join(IMAGE_DIR, f"{cid.zfill(3)}.png")
+                    if os.path.exists(img_p): st.image(img_p)
+                    else: st.markdown(f"<div class='missing-text'>NO IMG<br>{cid}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.6rem; font-weight:bold;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
 
 except Exception as e:
     st.error(f"Error: {e}")
