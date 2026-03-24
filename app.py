@@ -155,7 +155,7 @@ if len(st.session_state.temp_categories) > 1:
 if app_mode == "Gap Auditor":
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔍 Filters")
-    qty_threshold = st.sidebar.number_input("Max Qty to Audit", min_value=0, value=999)
+    qty_threshold = st.sidebar.number_input("Max Qty to Audit", min_value=0, value=0)
     purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "NEW Only", "USED Only", "Mixed Only"])
 
 # --- 6. CORE LOGIC HELPERS ---
