@@ -1,10 +1,24 @@
 import streamlit as st
-import xml.etree.ElementTree as ET
-import re
-import json
-import os
-import pandas as pd
-from collections import defaultdict
+
+# (Previous imports stay the same)
+
+st.set_page_config(page_title="Gap Auditor", page_icon="🔍")
+
+# --- NAVIGATION HEADER ---
+h1, h2, h3, h4 = st.columns(4)
+with h1: st.page_link("app.py", label="Home Hub", icon="🏠")
+with h2: st.page_link("pages/1_Gap_Auditor.py", label="Auditor", icon="🔍")
+with h3: st.page_link("pages/2_Color_Registry.py", label="Colors", icon="🎨")
+with h4: st.page_link("pages/3_Condition_Guard.py", label="Guard", icon="⚠️")
+
+st.divider()
+
+# --- OPTIONAL: LOAD XML ON THIS PAGE TOO ---
+with st.expander("📥 Quick Load/Change XML"):
+    new_xml = st.file_uploader("Upload new store.xml", type="xml", key="gap_upload")
+    if new_xml:
+        st.session_state.xml_data = new_xml.getvalue()
+        st.rerun()
 
 # --- 1. ASSETS & CONFIG ---
 REGISTRY_FILE = "color_registry.json"
