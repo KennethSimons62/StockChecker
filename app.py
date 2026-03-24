@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.7.0 - FULL RESTORE + MULTI-LOC"
+VERSION = "5.7.1 - FULL GAP + PART SUMMARY"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -86,6 +86,7 @@ st.markdown("""
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
     .missing-text { color: #f87171; font-weight: bold; font-size: 0.6rem; text-align: center; display: block; margin-bottom: 5px; line-height: 1.1; }
     .mixed-alert { color: #fbbf24; font-weight: bold; }
+    .empty-alert { color: #94a3b8; font-style: italic; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -134,8 +135,8 @@ for i, cat in enumerate(st.session_state.temp_categories):
 if app_mode in ["Gap Auditor", "Condition Guard"]:
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔍 Search Filters")
-    qty_threshold = st.sidebar.number_input("Max Qty / Slot", min_value=0, value=999)
-    purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "NEW", "USED", "MIXED"])
+    qty_threshold = st.sidebar.number_input("Max Qty to Audit (0 = Empty Only)", min_value=0, value=0)
+    purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "EMPTY", "NEW", "USED", "MIXED"])
 
 # --- 6. CORE LOGIC HELPERS ---
 def get_clean_id(prefix, number):
@@ -184,7 +185,7 @@ try:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             raw_remarks = rem_node.text.strip()
-            # Support for Multi-Location: 767/231 or 767 - 231
+            # Multi-Location Splitter
             locations = re.split(r'[/\\,]', raw_remarks)
 
             for loc_str in locations:
@@ -210,16 +211,15 @@ try:
                         container_stats[norm_id][h]["conds"].add(cond)
                         container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # Clue extraction for Discovery Zone
-    for loc_id, holes in container_stats.items():
-        for hole_num, stats in holes.items():
-            for target_cid in stats['color_ids']:
-                if target_cid not in st.session_state.color_map:
+    # Discovery Zone logic
+    for loc_id, hs in container_stats.items():
+        for h_n, stats in hs.items():
+            for t_cid in stats['color_ids']:
+                if t_cid not in st.session_state.color_map:
                     for content in container_contents[loc_id]:
-                        if content['h'] == str(hole_num) or (content['h'] == "1" and hole_num == 1):
-                            clue_text = f"<b>{content['name']}</b> at 📍 <b>{loc_id}{' ('+str(hole_num)+')' if hole_num > 1 else ''}</b>"
-                            if clue_text not in pure_clues_map[target_cid]:
-                                pure_clues_map[target_cid].append(clue_text)
+                        if str(content['h']) == str(h_n) or (content['h'] == "1" and h_n == 1):
+                            clue = f"<b>{content['name']}</b> at 📍 <b>{loc_id}{' ('+str(h_n)+')' if h_n > 1 else ''}</b>"
+                            if clue not in pure_clues_map[t_cid]: pure_clues_map[t_cid].append(clue)
 
     # --- MODE: GAP AUDITOR ---
     if app_mode == "Gap Auditor":
@@ -237,9 +237,10 @@ try:
                     for h in range(1, cap + 1):
                         hinfo = udata.get(h, {"qty": 0, "conds": set(), "color_ids": set()})
                         
-                        # Show non-empty slots under threshold
-                        if 0 < hinfo["qty"] <= qty_threshold:
-                            if len(hinfo["conds"]) > 1: cond_str = "MIXED"
+                        # LOGIC: Show if it's perfectly empty OR if it has parts but stays under threshold
+                        if hinfo["qty"] <= qty_threshold:
+                            if hinfo["qty"] == 0: cond_str = "EMPTY"
+                            elif len(hinfo["conds"]) > 1: cond_str = "MIXED"
                             elif "N" in hinfo["conds"]: cond_str = "NEW"
                             else: cond_str = "USED"
                             
@@ -253,21 +254,23 @@ try:
                                 }
                     
                     if umatches:
-                        with st.expander(f"📦 {pref}{n} — ({len(umatches)} Active Slots)"):
+                        with st.expander(f"📦 {pref}{n} — ({len(umatches)} hits)"):
                             for h_n, data in umatches.items():
-                                cond_class = "mixed-alert" if data['cond'] == "MIXED" else ""
-                                st.markdown(f"""
-                                **📍 Slot {h_n}** | Condition: <span class='{cond_class}'>{data['cond']}</span>  
-                                📊 **Summary:** {data['qty']} Parts in {data['lots']} Lots  
-                                🎨 **Colors:** {', '.join(data['colors'])}
-                                ---
-                                """, unsafe_allow_html=True)
+                                if data['cond'] == "EMPTY":
+                                    st.markdown(f"**📍 Slot {h_n}:** <span class='empty-alert'>EMPTY / NO DATA</span>", unsafe_allow_html=True)
+                                else:
+                                    c_class = "mixed-alert" if data['cond'] == "MIXED" else ""
+                                    st.markdown(f"""
+                                    **📍 Slot {h_n}** | Condition: <span class='{c_class}'>{data['cond']}</span>  
+                                    📊 **Summary:** {data['qty']} Parts in {data['lots']} Lots  
+                                    🎨 **Colors:** {', '.join(data['colors'])}
+                                    """, unsafe_allow_html=True)
+                                st.markdown("---")
 
     # --- MODE: CONDITION GUARD ---
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts:
-            st.success("✅ Consistent Conditions.")
+        if not conflicts: st.success("✅ Consistent Conditions.")
         else:
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
@@ -277,16 +280,15 @@ try:
 
     # --- MODE: COLOR REGISTRY ---
     elif app_mode == "Color Registry":
+        # Full Registry Logic
         all_found_cids = sorted(list(pure_clues_map.keys()), key=lambda x: int(x) if x.isdigit() else 999)
         unknowns = [c for c in all_found_cids if c not in st.session_state.color_map]
-        
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
-            st.subheader("🔍 Discovery Zone: Identify Missing Colors")
+            st.subheader("🔍 Discovery Zone")
             target_cid = unknowns[0]
             clues = pure_clues_map[target_cid]
             if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
-            
             c1, c2, c3 = st.columns([1, 2, 1])
             with c1:
                 st.metric("Missing ID", target_cid)
@@ -307,9 +309,8 @@ try:
             st.markdown("</div>", unsafe_allow_html=True)
 
         h1, h2 = st.columns([2, 1])
-        with h1: st.subheader("🎨 Swatch Gallery & Image Audit")
+        with h1: st.subheader("🎨 Swatch Gallery")
         with h2: reg_search = st.text_input("🔍 Search Registry...", placeholder="ID or Name")
-
         if st.session_state.color_map:
             all_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             filtered = [c for c in all_cids if reg_search.lower() in c.lower() or reg_search.lower() in st.session_state.color_map[c].lower()] if reg_search else all_cids
@@ -323,7 +324,6 @@ try:
                     else: st.markdown(f"<span class='missing-text'>NO IMAGE<br>{padded}</span>", unsafe_allow_html=True)
                     st.markdown(f"<p style='font-size:0.55rem; font-weight:bold; line-height:1; margin:0;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
                     st.caption(f"ID: {cid}")
-
         with st.expander("⌨️ Manual Entry"):
             m1, m2 = st.columns(2)
             mid = m1.text_input("ID #", key=f"man_id_{st.session_state.reset_key}")
