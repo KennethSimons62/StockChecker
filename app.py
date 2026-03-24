@@ -230,15 +230,21 @@ try:
                                     cn = st.session_state.color_map.get(itm['cid'], f"Code {itm['cid']}")
                                     st.markdown(f"<div class='part-row'><b>{itm['qty']}x</b> {itm['name']} ({cn})</div>", unsafe_allow_html=True)
 
-  # --- MODE: CONDITION GUARD ---
+# --- MODE: CONDITION GUARD (RESTORED FROM v5.6.0) ---
     elif app_mode == "Condition Guard":
+        # This logic is identical to your v5.6.0 version to ensure reliability
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts: st.success("✅ Consistent.")
+        
+        if not conflicts: 
+            st.success("✅ Consistent Conditions.")
         else:
+            st.info("The following locations contain a mix of NEW and USED parts in the same slot.")
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
+                    # Reports every item in that exact Remark location
                     for row in container_contents[c_id]:
                         c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
+                        # Standard reporting format: Qty x Name — Color (ID) [Condition]
                         st.write(f"**{row['qty']}x** {row['name']} — {c_n} ({row['cid']}) [**{row['cond']}**]")
 
 
