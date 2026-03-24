@@ -1,11 +1,21 @@
 import streamlit as st
 import xml.etree.ElementTree as ET
-import re
 import json
 import os
 from collections import defaultdict
 
-# --- 1. ASSETS & CONFIG ---
+# --- 1. PAGE CONFIG & NAV ---
+st.set_page_config(page_title="Color Registry", page_icon="🎨", layout="wide")
+
+# Persistent Navigation Bar
+nav_cols = st.columns(4)
+nav_cols[0].page_link("Home.py", label="HOME HUB", icon="🏠")
+nav_cols[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
+nav_cols[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
+nav_cols[3].page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
+st.divider()
+
+# --- 2. ASSETS & DIRECTORIES ---
 REGISTRY_FILE = "color_registry.json"
 IMAGE_DIR = "color_images"
 
@@ -30,30 +40,32 @@ if 'color_map' not in st.session_state:
 if 'clue_index' not in st.session_state:
     st.session_state.clue_index = 0
 
-# --- 2. PAGE UI ---
-st.header("🎨 Color Registry & Discovery")
+if 'reset_key' not in st.session_state:
+    st.session_state.reset_key = 0
 
-if not st.session_state.xml_data:
-    st.warning("Please upload a store.xml on the Home page to find missing colors.")
+def trigger_reset():
+    st.session_state.reset_key += 1
+
+# --- 3. DATA ENGINE ---
+if not st.session_state.get('xml_data'):
+    st.warning("🎨 No Store Data Loaded. Please go to the HOME HUB to upload your XML.")
     st.stop()
 
-# --- 3. DATA ENGINE (Color Extraction Only) ---
+# Parse XML for colors and clues
 root = ET.fromstring(st.session_state.xml_data)
 items = root.findall(".//ITEM")
-
 pure_clues_map = defaultdict(list)
 all_xml_cids = set()
 
 for item in items:
     cid = str(item.find("COLOR").text)
     all_xml_cids.add(cid)
-    
     rem_node = item.find("REMARKS")
     if rem_node is not None and rem_node.text:
-        # Use the name of the part as a clue for the color
+        rem_text = rem_node.text.strip()
         p_id = item.find("ITEMID").text
-        loc = rem_node.text.strip()
-        clue = f"Part: **{p_id}** found at 📍 **{loc}**"
+        # Logic: Find parts that are the ONLY item in their slot to provide "Pure Clues"
+        clue = f"Part **{p_id}** found at 📍 **{rem_text}**"
         if clue not in pure_clues_map[cid]:
             pure_clues_map[cid].append(clue)
 
@@ -63,16 +75,16 @@ unknowns = [c for c in all_xml_cids if c not in st.session_state.color_map]
 if unknowns:
     st.markdown("""
         <style>
-        .trainer-card { background-color: #1e1b4b; padding: 20px; border-radius: 12px; border: 2px solid #6366f1; color: white; }
-        .clue-box { background: rgba(99, 102, 241, 0.1); padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6366f1; }
+        .trainer-card { background-color: #1e1b4b; padding: 25px; border-radius: 12px; border: 2px solid #6366f1; margin-bottom: 20px; color: white; }
+        .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; }
         </style>
     """, unsafe_allow_html=True)
     
     st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
-    st.subheader("🔍 Discovery Zone: Identify Missing Color IDs")
+    st.subheader("🔍 Discovery Zone")
     
     target_cid = unknowns[0]
-    clues = pure_clues_map.get(target_cid, ["No specific location clues found."])
+    clues = pure_clues_map.get(target_cid, ["No specific location clues found for this ID."])
     
     if st.session_state.clue_index >= len(clues): 
         st.session_state.clue_index = 0
@@ -85,35 +97,39 @@ if unknowns:
             st.rerun()
             
     with c2:
-        new_name = st.text_input("Enter Color Name:", key="discovery_input")
+        train_name = st.text_input("Enter Color Name:", key=f"train_input_{st.session_state.reset_key}")
         st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
         
     with c3:
         st.write("")
         if st.button("💾 SAVE TO REGISTRY", use_container_width=True):
-            if new_name:
-                st.session_state.color_map[target_cid] = new_name
+            if train_name:
+                st.session_state.color_map[target_cid] = train_name
                 save_registry(st.session_state.color_map)
                 st.session_state.clue_index = 0
+                trigger_reset()
                 st.success(f"ID {target_cid} saved!")
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 else:
-    st.success("✅ All colors in this XML are recognized in your registry!")
+    st.success("✅ All color IDs in this store file are already in your registry!")
 
 # --- 5. SWATCH GALLERY ---
 st.divider()
 st.subheader("🎨 Registered Swatch Gallery")
-
 search = st.text_input("🔍 Search Registry...", placeholder="Search by ID or Name")
 
 if st.session_state.color_map:
-    all_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
-    filtered = [c for c in all_cids if search.lower() in c or search.lower() in st.session_state.color_map[c].lower()] if search else all_cids
+    # Sort IDs numerically
+    sorted_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
+    
+    # Filter based on search
+    filtered = [c for c in sorted_cids if search.lower() in c or search.lower() in st.session_state.color_map[c].lower()] if search else sorted_cids
     
     cols = st.columns(10)
     for i, cid in enumerate(filtered):
         with cols[i % 10]:
+            # Image padding logic (e.g. ID 1 becomes 001.png)
             try: padded = f"{int(cid):03d}"
             except: padded = cid
             
@@ -121,7 +137,7 @@ if st.session_state.color_map:
             if os.path.exists(img_path):
                 st.image(img_path, width=70)
             else:
-                st.markdown(f"<div style='color:#f87171; font-size:0.7rem; font-weight:bold;'>NO IMG<br>{cid}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; color:#f87171; font-size:0.6rem; font-weight:bold;'>NO IMG<br>{cid}</div>", unsafe_allow_html=True)
             
             st.markdown(f"**{st.session_state.color_map[cid]}**")
             st.caption(f"ID: {cid}")
@@ -129,10 +145,11 @@ if st.session_state.color_map:
 # --- 6. MANUAL ENTRY ---
 with st.expander("⌨️ Manual Registry Entry"):
     m1, m2 = st.columns(2)
-    mid = m1.text_input("Manual ID #")
-    mna = m2.text_input("Manual Name")
-    if st.button("Add Manually"):
+    mid = m1.text_input("Manual ID #", key="manual_id")
+    mna = m2.text_input("Manual Color Name", key="manual_name")
+    if st.button("Add to Registry"):
         if mid and mna:
             st.session_state.color_map[str(mid)] = mna
             save_registry(st.session_state.color_map)
+            st.success(f"Added {mna}!")
             st.rerun()
