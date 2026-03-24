@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "6.2.1 - FULL RESTORE"
+VERSION = "6.2.5 - FINAL STABLE RESTORE"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -86,7 +86,6 @@ st.markdown("""
     .clue-box { background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; border-left: 5px solid #6366f1; margin-top: 10px; color: #a5b4fc; font-size: 1.1rem; font-weight: bold; }
     .status-badge { background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #3b82f6; color: #f8fafc; font-family: monospace; font-size: 0.75rem; margin-bottom: 20px; }
     .cat-header { font-size: 1.5rem; font-weight: bold; color: #3b82f6; border-bottom: 2px solid #3b82f6; margin-bottom: 20px; }
-    .missing-text { color: #f87171; font-weight: bold; font-size: 0.6rem; text-align: center; display: block; margin-bottom: 5px; line-height: 1.1; }
     .part-row { font-size: 0.85rem; border-left: 2px solid #3b82f6; padding-left: 10px; margin-bottom: 5px; }
     </style>
 """, unsafe_allow_html=True)
@@ -183,10 +182,9 @@ try:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
             raw_remarks = rem_node.text.strip()
-            # Split for multi-locations like 767/231
             locations = re.split(r'[/\\,]', raw_remarks)
             for loc_str in locations:
-                m = re.search(r'^([A-Za-z]*)(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', loc_str.strip())
+                m = re.search(r'^([A-Za-z]*)\s*(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', loc_str.strip())
                 if m:
                     pref, num, h_raw = m.groups()
                     norm_id = get_clean_id(pref or "", num)
@@ -202,7 +200,7 @@ try:
                         container_stats[norm_id][h]["conds"].add(cond)
                         container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # --- GAP AUDITOR MODE ---
+    # --- MODE: GAP AUDITOR ---
     if app_mode == "Gap Auditor":
         tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
         for idx, cat in enumerate(st.session_state.temp_categories):
@@ -230,27 +228,21 @@ try:
                                     cn = st.session_state.color_map.get(itm['cid'], f"Code {itm['cid']}")
                                     st.markdown(f"<div class='part-row'><b>{itm['qty']}x</b> {itm['name']} ({cn})</div>", unsafe_allow_html=True)
 
-# --- MODE: CONDITION GUARD (RESTORED FROM v5.6.0) ---
+    # --- MODE: CONDITION GUARD (RESTORED FROM v5.6.0) ---
     elif app_mode == "Condition Guard":
-        # This logic is identical to your v5.6.0 version to ensure reliability
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        
-        if not conflicts: 
+        if not conflicts:
             st.success("✅ Consistent Conditions.")
         else:
-            st.info("The following locations contain a mix of NEW and USED parts in the same slot.")
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
-                    # Reports every item in that exact Remark location
                     for row in container_contents[c_id]:
                         c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
-                        # Standard reporting format: Qty x Name — Color (ID) [Condition]
                         st.write(f"**{row['qty']}x** {row['name']} — {c_n} ({row['cid']}) [**{row['cond']}**]")
 
-
-    # --- COLOR REGISTRY MODE ---
+    # --- MODE: COLOR REGISTRY ---
     elif app_mode == "Color Registry":
-        # Clue Extraction for Discovery Zone
+        # Clue Extraction
         for loc_id, hs in container_stats.items():
             for h_n, stats in hs.items():
                 for t_cid in stats['color_ids']:
@@ -269,15 +261,16 @@ try:
             target = unknowns[0]
             clues = pure_clues_map[target]
             if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
-            c1, c2, c3 = st.columns([1, 2, 1])
-            with c1: st.metric("Missing ID", target)
-            with c2: 
-                t_name = st.text_input("Color Name:", key=f"t_{st.session_state.reset_key}")
-                st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
+            c1, col2, col3 = st.columns([1, 2, 1])
+            with c1: 
+                st.metric("Missing ID", target)
                 if st.button("⏭️ Next Clue"):
                     st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
                     st.rerun()
-            with c3:
+            with col2: 
+                t_name = st.text_input("Color Name:", key=f"t_{st.session_state.reset_key}")
+                st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
+            with col3:
                 st.write("")
                 if st.button("💾 Save to Registry", use_container_width=True):
                     if t_name:
@@ -298,7 +291,7 @@ try:
                 with cols[i % 12]:
                     img_p = os.path.join(IMAGE_DIR, f"{cid.zfill(3)}.png")
                     if os.path.exists(img_p): st.image(img_p)
-                    else: st.markdown(f"<div class='missing-text'>NO IMG<br>{cid}</div>", unsafe_allow_html=True)
+                    else: st.markdown(f"<div style='text-align:center; color:#f87171; font-size:0.6rem;'>NO IMG<br>{cid}</div>", unsafe_allow_html=True)
                     st.markdown(f"<p style='font-size:0.6rem; font-weight:bold; line-height:1; margin:0;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
 
         with st.expander("⌨️ Manual Entry"):
