@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.8.9 - FULL SYSTEM RESTORE"
+VERSION = "5.9.0 - GUARD REPORT FIX"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -100,7 +100,7 @@ st.markdown("""
 
 # --- 5. THE SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
-st.sidebar.markdown(f"<div class='status-badge'><b>VERSION: {VERSION}</b><br>Updated: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<div class='status-badge'><b>VERSION: {VERSION}</b></div>", unsafe_allow_html=True)
 
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard", "Color Registry"])
 
@@ -291,10 +291,22 @@ try:
         if not conflicts: st.success("✅ No Mixed Conditions Found.")
         else:
             for c_id in sorted(conflicts):
-                with st.expander(f"🔴 Conflict in {c_id}"):
-                    for row in container_contents[c_id]:
-                        c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
-                        st.write(f"**{row['qty']}x** {row['name']} — {c_n} [{row['cond']}]")
+                with st.expander(f"🔴 Conflict in Location: {c_id}"):
+                    # Group contents by condition for cleaner reporting
+                    new_items = [r for r in container_contents[c_id] if r['cond'] == 'N']
+                    used_items = [r for r in container_contents[c_id] if r['cond'] == 'U']
+                    
+                    if new_items:
+                        st.markdown("<p class='new-label'>NEW Parts Found:</p>", unsafe_allow_html=True)
+                        for row in new_items:
+                            c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
+                            st.markdown(f"* **{row['qty']}x** {row['name']} — {c_n} (ID: {row['cid']})")
+                    
+                    if used_items:
+                        st.markdown("<p class='used-label'>USED Parts Found:</p>", unsafe_allow_html=True)
+                        for row in used_items:
+                            c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
+                            st.markdown(f"* **{row['qty']}x** {row['name']} — {c_n} (ID: {row['cid']})")
 
     # --- COLOR REGISTRY MODE ---
     elif app_mode == "Color Registry":

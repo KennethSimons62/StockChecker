@@ -1,6 +1,6 @@
 [
     {
-        "name": "Drawers 1-1107",
+        "name": "Wall Drawers 1-1107",
         "prefix": "",
         "start": 1,
         "end": 1107,
@@ -38,5 +38,12 @@
         "end": 2,
         "cap": 25,
         "is_wall": false
+    },
+    {
+        "name": "Drawers 12 inch",
+        "prefix": "D",
+        "start": 1,
+        "end": 8,
+        "cap": 15
     }
 ]
