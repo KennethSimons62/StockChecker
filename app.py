@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.8.6 - SIDEBAR RESTORE"
+VERSION = "5.8.9 - FULL SYSTEM RESTORE"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -53,23 +53,22 @@ CATALOG_LOOKUP = load_parts_catalog()
 if 'active_profile' not in st.session_state:
     st.session_state.active_profile = "Default"
 
-# REINFORCED LOAD LOGIC
-def refresh_temp_categories():
+def get_default_layout():
+    return [
+        {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
+        {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30},
+        {"name": "Cases (C)", "prefix": "C", "start": 1, "end": 180, "cap": 18},
+        {"name": "Drawers (D)", "prefix": "D", "start": 1, "end": 38, "cap": 24},
+        {"name": "Filing Cabinet", "prefix": "FC", "start": 1, "end": 2, "cap": 25}
+    ]
+
+if 'temp_categories' not in st.session_state:
     path = os.path.join(PROFILE_DIR, f"{st.session_state.active_profile}.json")
     if os.path.exists(path):
         with open(path, "r") as f:
             st.session_state.temp_categories = json.load(f)
     else:
-        st.session_state.temp_categories = [
-            {"name": "Standard Drawers", "prefix": "", "start": 1, "end": 1107, "cap": 1},
-            {"name": "Boxes (B)", "prefix": "B", "start": 1, "end": 40, "cap": 30},
-            {"name": "Cases (C)", "prefix": "C", "start": 1, "end": 180, "cap": 18},
-            {"name": "Drawers (D)", "prefix": "D", "start": 1, "end": 38, "cap": 24},
-            {"name": "Filing Cabinet", "prefix": "FC", "start": 1, "end": 2, "cap": 25}
-        ]
-
-if 'temp_categories' not in st.session_state:
-    refresh_temp_categories()
+        st.session_state.temp_categories = get_default_layout()
 
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
@@ -95,12 +94,13 @@ st.markdown("""
     .used-label { color: #f87171; font-weight: bold; }
     .empty-label { color: #94a3b8; font-style: italic; }
     .part-row { font-size: 0.85rem; border-left: 2px solid #3b82f6; padding-left: 10px; margin-bottom: 5px; background: rgba(255,255,255,0.05); border-radius: 0 4px 4px 0; }
+    .missing-text { color: #f87171; font-weight: bold; font-size: 0.6rem; text-align: center; display: block; margin-bottom: 5px; line-height: 1.1; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 5. THE SIDEBAR ---
 st.sidebar.title("🧱 Auditor Settings")
-st.sidebar.markdown(f"<div class='status-badge'><b>VERSION: {VERSION}</b></div>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<div class='status-badge'><b>VERSION: {VERSION}</b><br>Updated: {LAST_MODIFIED}</div>", unsafe_allow_html=True)
 
 app_mode = st.sidebar.radio("🚀 Select Tool:", ["Gap Auditor", "Condition Guard", "Color Registry"])
 
@@ -116,36 +116,47 @@ selected_p = st.sidebar.selectbox("Load Profile", profiles, index=profiles.index
 
 if selected_p != st.session_state.active_profile:
     st.session_state.active_profile = selected_p
-    refresh_temp_categories()
+    path = os.path.join(PROFILE_DIR, f"{selected_p}.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            st.session_state.temp_categories = json.load(f)
     st.rerun()
 
-new_p_name = st.sidebar.text_input("New Profile Name", value=st.session_state.active_profile)
-if st.sidebar.button("💾 SAVE CURRENT LAYOUT"):
+new_p_name = st.sidebar.text_input("Profile Name", value=st.session_state.active_profile)
+if st.sidebar.button("💾 SAVE PROFILE"):
     path = os.path.join(PROFILE_DIR, f"{new_p_name}.json")
     with open(path, "w") as f:
         json.dump(st.session_state.temp_categories, f, indent=4)
     st.session_state.active_profile = new_p_name
-    st.sidebar.success(f"Profile '{new_p_name}' Saved!")
+    st.sidebar.success("Saved!")
     st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Layout Editor")
-# This loop handles the visual inputs for your storage hardware
+
 for i in range(len(st.session_state.temp_categories)):
     cat = st.session_state.temp_categories[i]
-    with st.sidebar.expander(f"📁 {cat['name'] or 'New Category'}"):
-        st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"sidebar_lab_{i}")
-        st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"sidebar_pre_{i}")
-        st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sidebar_sta_{i}")
-        st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"sidebar_end_{i}")
-        st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"sidebar_cap_{i}")
+    with st.sidebar.expander(f"📁 {cat['name']}"):
+        st.session_state.temp_categories[i]['name'] = st.text_input("Label", value=cat['name'], key=f"lab_{i}")
+        st.session_state.temp_categories[i]['prefix'] = st.text_input("Prefix", value=cat['prefix'], key=f"pre_{i}")
+        st.session_state.temp_categories[i]['start'] = st.number_input("Start #", value=int(cat['start']), key=f"sta_{i}")
+        st.session_state.temp_categories[i]['end'] = st.number_input("End #", value=int(cat['end']), key=f"end_{i}")
+        st.session_state.temp_categories[i]['cap'] = st.number_input("Holes/Unit", value=int(cat['cap']), key=f"cap_{i}")
+
+if st.sidebar.button("➕ ADD CATEGORY"):
+    st.session_state.temp_categories.append({"name": "New Storage", "prefix": "X", "start": 1, "end": 1, "cap": 1})
+    st.rerun()
+
+if len(st.session_state.temp_categories) > 1:
+    if st.sidebar.button("🗑️ REMOVE LAST"):
+        st.session_state.temp_categories.pop()
+        st.rerun()
 
 if app_mode == "Gap Auditor":
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🔍 Audit Filters")
+    st.sidebar.subheader("🔍 Filters")
     qty_threshold = st.sidebar.number_input("Max Qty to Audit", min_value=0, value=999)
-    purity_filter = st.sidebar.selectbox("Condition Focus", 
-        ["Show All", "Empty Only", "NEW Only", "USED Only", "Mixed Only"])
+    purity_filter = st.sidebar.selectbox("Condition Focus", ["Show All", "Empty Only", "NEW Only", "USED Only", "Mixed Only"])
 
 # --- 6. CORE LOGIC HELPERS ---
 def get_clean_id(prefix, number):
@@ -274,10 +285,10 @@ try:
                                         st.markdown(f"<div class='part-row'><b>{item['qty']}x</b> {item['name']}<br><i>{c_n} [{item['cond']}]</i></div>", unsafe_allow_html=True)
                                 st.markdown("---")
 
-    # --- OTHER MODES ---
+    # --- CONDITION GUARD MODE ---
     elif app_mode == "Condition Guard":
         conflicts = [d for d, hs in container_stats.items() if any(len(h["conds"]) > 1 for h in hs.values())]
-        if not conflicts: st.success("✅ No Mixed Conditions.")
+        if not conflicts: st.success("✅ No Mixed Conditions Found.")
         else:
             for c_id in sorted(conflicts):
                 with st.expander(f"🔴 Conflict in {c_id}"):
@@ -285,31 +296,40 @@ try:
                         c_n = st.session_state.color_map.get(row['cid'], f"Code {row['cid']}")
                         st.write(f"**{row['qty']}x** {row['name']} — {c_n} [{row['cond']}]")
 
+    # --- COLOR REGISTRY MODE ---
     elif app_mode == "Color Registry":
         all_found = sorted(list(pure_clues_map.keys()), key=lambda x: int(x) if x.isdigit() else 999)
         unknowns = [c for c in all_found if c not in st.session_state.color_map]
+        
         if unknowns:
             st.markdown("<div class='trainer-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Discovery Zone")
             target = unknowns[0]
             clues = pure_clues_map[target]
             if st.session_state.clue_index >= len(clues): st.session_state.clue_index = 0
+            
             c1, c2, c3 = st.columns([1, 2, 1])
             with c1: st.metric("Missing ID", target)
             with c2: 
                 t_name = st.text_input("Color Name:", key=f"t_{st.session_state.reset_key}")
                 st.markdown(f"<div class='clue-box'>{clues[st.session_state.clue_index]}</div>", unsafe_allow_html=True)
+                if st.button("⏭️ Next Clue"):
+                    st.session_state.clue_index = (st.session_state.clue_index + 1) % len(clues)
+                    st.rerun()
             with c3:
-                if st.button("💾 Save"):
+                st.write("")
+                if st.button("💾 Save to Registry", use_container_width=True):
                     if t_name:
                         st.session_state.color_map[target] = t_name
                         save_registry(st.session_state.color_map)
+                        st.session_state.clue_index = 0
                         trigger_reset(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
         h1, h2 = st.columns([2, 1])
         with h1: st.subheader("🎨 Swatch Gallery")
-        with h2: search = st.text_input("🔍 Search...")
+        with h2: search = st.text_input("🔍 Search Registry...", placeholder="ID or Name")
+        
         if st.session_state.color_map:
             all_c = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             filt = [c for c in all_c if search.lower() in c or search.lower() in st.session_state.color_map[c].lower()] if search else all_c
@@ -319,7 +339,17 @@ try:
                     img_p = os.path.join(IMAGE_DIR, f"{cid.zfill(3)}.png")
                     if os.path.exists(img_p): st.image(img_p)
                     else: st.markdown(f"<div class='missing-text'>NO IMG<br>{cid}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:0.6rem; font-weight:bold;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.6rem; font-weight:bold; line-height:1; margin:0;'>{st.session_state.color_map[cid]}</p>", unsafe_allow_html=True)
+
+        with st.expander("⌨️ Manual Entry"):
+            m1, m2 = st.columns(2)
+            mid = m1.text_input("ID #", key=f"man_id_{st.session_state.reset_key}")
+            mna = m2.text_input("Name", key=f"man_na_{st.session_state.reset_key}")
+            if st.button("Manual Save"):
+                if mid and mna:
+                    st.session_state.color_map[str(mid)] = mna
+                    save_registry(st.session_state.color_map)
+                    trigger_reset(); st.rerun()
 
 except Exception as e:
     st.error(f"Error: {e}")

@@ -26,7 +26,7 @@
     {
         "name": "Drawers (D)",
         "prefix": "D",
-        "start": 1,
+        "start": 9,
         "end": 38,
         "cap": 24,
         "is_wall": false
