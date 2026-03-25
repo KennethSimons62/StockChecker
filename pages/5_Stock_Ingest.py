@@ -80,38 +80,41 @@ if ingest_file:
     new_root = new_tree.getroot()
     display_data = []
     
+    # Process every item in your newstock.xml
     for item in new_root.findall(".//ITEM"):
         pid = item.find("ITEMID").text
         cond = item.find("CONDITION").text.upper()
         cid = item.find("COLOR").text
         color_name = COLOR_MAP.get(str(cid), f"Color {cid}")
         
-        # FIND THE HOME VESSEL
+        # 1. FIND THE HOME VESSEL (e.g., C151 for part 3069)
         target_vessels = FAMILY_VESSELS.get(pid, {}).get(cond, set())
         
         suggestion = "NEW VESSEL REQ."
         found = False
         
         if target_vessels:
+            # Sort vessels to prioritize Alpha-prefixes like 'C' over plain numbers
             for v_id in sorted(list(target_vessels)):
-                # Determine Capacity
-                unit_cap = 20 # Fallback
+                # 2. DETERMINE CAPACITY (How many holes does a Case have?)
+                unit_cap = 20 # Default if not in Config
                 for cat in st.session_state.get('temp_categories', []):
                     if v_id.startswith(cat['prefix']):
                         unit_cap = cat['cap']
                         break
                 
-                # SCAN VESSEL FOR ANY EMPTY HOLE
+                # 3. SCAN THE ENTIRE VESSEL FOR THE NEXT EMPTY HOLE
                 for h in range(1, unit_cap + 1):
                     if h not in OCC_HOLES.get(v_id, set()):
+                        # Format as Vessel-Hole (e.g., C151-10)
                         suggestion = f"{v_id}-{h:02d}"
                         if v_id not in OCC_HOLES: OCC_HOLES[v_id] = set()
-                        OCC_HOLES[v_id].add(h) # Lock it for this run
+                        OCC_HOLES[v_id].add(h) # Lock this hole for the next item
                         found = True
                         break
                 if found: break
 
-        # Update XML
+        # 4. UPDATE THE XML REMARK FIELD
         rem_node = item.find("REMARKS")
         if rem_node is None: rem_node = ET.SubElement(item, "REMARKS")
         rem_node.text = suggestion
@@ -119,12 +122,21 @@ if ingest_file:
         display_data.append({
             "Part": pid,
             "Color": color_name,
-            "Vessel(s) Found": ", ".join(target_vessels) if target_vessels else "None",
+            "Vessel Match": ", ".join(target_vessels) if target_vessels else "None",
             "Suggested Slot": suggestion
         })
 
+    # --- 5. RENDER THE RESULTS TABLE ---
+    st.subheader("📋 Ingest Suggestions")
     st.dataframe(display_data, use_container_width=True)
     
-    # Export
+    # --- 6. DOWNLOAD BUTTON ---
     xml_out = ET.tostring(new_root, encoding='utf-8')
-    st.download_button("💾 DOWNLOAD XML", data=xml_out, file_name="Vessel_Mapped_Stock.xml", type="primary")
+    st.download_button(
+        label="💾 DOWNLOAD MAPPED XML",
+        data=xml_out,
+        file_name="Mapped_Ingest.xml",
+        mime="application/xml",
+        type="primary",
+        use_container_width=True
+    )
