@@ -11,7 +11,7 @@ if 'xml_data' not in st.session_state:
 # --- 2. SLEEK NAVIGATION ---
 # This matches the navigation on your other pages for a seamless feel
 nav1, nav2, nav3, nav4 = st.columns(4)
-nav1.page_link("app.py", label="HOME HUB", icon="🏠")
+nav1.page_link("home.py", label="HOME HUB", icon="🏠")
 nav2.page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
 nav3.page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
 nav4.page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")

@@ -1,4 +1,4 @@
 echo off
 cls
-python -m streamlit run app.py
+python -m streamlit run home.py
 pause
