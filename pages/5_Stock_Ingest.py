@@ -6,7 +6,6 @@ import json
 
 # --- 1. PAGE CONFIG & NAV ---
 st.set_page_config(page_title="Stock Ingest", page_icon="📥", layout="wide")
-
 nav = st.columns(6)
 nav[0].page_link("Home.py", label="HOME", icon="🏠")
 nav[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
@@ -16,132 +15,120 @@ nav[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
 nav[5].page_link("pages/5_Stock_Ingest.py", label="INGEST", icon="📥")
 st.divider()
 
-# --- 2. DATA LOADERS ---
-def load_json_file(filename):
-    if os.path.exists(filename):
-        with open(filename, "r") as f:
-            return json.load(f)
-    return {}
-
-COLOR_MAP = load_json_file("color_registry.json")
-
+# --- 2. THE FAMILY ENGINE ---
 @st.cache_data
-def map_store_by_family(xml_bytes):
-    """Maps locations by ItemID + Condition, ignoring Color."""
-    if not xml_bytes: return {}, {}
+def analyze_store_families(xml_bytes):
+    """Creates a map of where every Part ID lives, regardless of color."""
     root = ET.fromstring(xml_bytes)
-    
-    # Map: ItemID -> Condition -> Set of UnitIDs (e.g., '2431' -> 'N' -> {'D101', 'D105'})
-    family_units = {} 
-    # Map: UnitID -> Set of occupied Holes
-    occupied_holes = {} 
+    # PartID -> Condition -> Set of Units (e.g. '2431' -> 'U' -> {'C062', 'C089'})
+    family_map = {}
+    # UnitID -> Set of taken holes (e.g. 'C062' -> {1, 2, 18})
+    occupied_holes = {}
 
     for item in root.findall(".//ITEM"):
         pid = item.find("ITEMID").text
         cond = item.find("CONDITION").text.upper()
         rem = (item.find("REMARKS").text or "").strip()
-        
-        if rem:
-            # Extract Unit (e.g., D104) and Hole (e.g., 1)
-            m = re.search(r'^([A-Za-z]*\d+)(?:[-/ ]+([0-9,/-]+))?', rem)
-            if m:
-                unit_id, holes = m.groups()
+
+        if rem and rem != "**":
+            # Extract Unit and Hole. Supports 'C062-18', 'D025-01/02', '0352' (treated as unit 0352)
+            # This regex captures the primary location identifier
+            match = re.search(r'^([A-Za-z]*\d+)(?:[-/ ]+([0-9,/-]+))?', rem)
+            if match:
+                unit_id, hole_str = match.groups()
                 
-                # Add to Family Map
-                if pid not in family_units: family_units[pid] = {}
-                if cond not in family_units[pid]: family_units[pid][cond] = set()
-                family_units[pid][cond].add(unit_id)
-                
-                # Track occupied holes for gap finding
+                # Add to family knowledge
+                if pid not in family_map: family_map[pid] = {}
+                if cond not in family_map[pid]: family_map[pid][cond] = set()
+                family_map[pid][cond].add(unit_id)
+
+                # Add to hole occupancy
                 if unit_id not in occupied_holes: occupied_holes[unit_id] = set()
-                if holes:
-                    for h in re.split(r'[,/-]+', holes):
+                if hole_str:
+                    # Split '01/02' or '16-18' into individual numbers
+                    for h in re.split(r'[,/-]+', hole_str):
                         if h.isdigit(): occupied_holes[unit_id].add(int(h))
 
-    # Convert sets to lists for caching
-    serializable_families = {k: {ck: list(cv) for ck, cv in v.items()} for k, v in family_units.items()}
-    serializable_holes = {k: list(v) for k, v in occupied_holes.items()}
-    return serializable_families, serializable_holes
+    # Convert sets to lists for Streamlit caching
+    clean_families = {k: {ck: list(cv) for ck, cv in v.items()} for k, v in family_map.items()}
+    clean_holes = {k: list(v) for k, v in occupied_holes.items()}
+    return clean_families, clean_holes
 
-# --- 3. PROCESSING ---
+# --- 3. PAGE LOGIC ---
 if not st.session_state.get('xml_data'):
-    st.error("⚠️ Upload Main Store XML on HOME page first.")
+    st.error("❌ No Main Inventory! Upload store.xml on the HOME page.")
     st.stop()
 
-FAMILIES_LIST, HOLES_LIST = map_store_by_family(st.session_state.xml_data)
-# Restore sets for fast logic
-FAMILIES = {k: {ck: set(cv) for ck, cv in v.items()} for k, v in FAMILIES_LIST.items()}
-OCC_HOLES = {k: set(v) for k, v in HOLES_LIST.items()}
+# Load Family Maps
+F_LIST, H_LIST = analyze_store_families(st.session_state.xml_data)
+FAMILIES = {k: {ck: set(cv) for ck, cv in v.items()} for k, v in F_LIST.items()}
+OCCUPIED = {k: set(v) for k, v in H_LIST.items()}
 
-st.title("📥 Family-Based Stock Ingest")
-st.markdown("Groups new parts into existing locations based on **Item ID + Condition**.")
+# Load Color Registry
+if os.path.exists("color_registry.json"):
+    with open("color_registry.json", "r") as f:
+        COLOR_MAP = json.load(f)
+else:
+    COLOR_MAP = {}
 
-ingest_file = st.file_uploader("Upload BrickStore XML", type="xml")
+st.title("📥 Family-Match Stock Ingest")
+st.markdown("Assigns locations based strictly on **Part ID + Condition**.")
 
-if ingest_file:
-    new_tree = ET.parse(ingest_file)
-    new_root = new_tree.getroot()
-    new_items = new_root.findall(".//ITEM")
-    
-    display_data = []
-    
-    for item in new_items:
+new_file = st.file_uploader("Upload newstock.xml", type="xml")
+
+if new_file:
+    tree = ET.parse(new_file)
+    root = tree.getroot()
+    results = []
+
+    for item in root.findall(".//ITEM"):
         pid = item.find("ITEMID").text
-        color_id = item.find("COLOR").text
         cond = item.find("CONDITION").text.upper()
+        cid = item.find("COLOR").text
         
-        color_name = COLOR_MAP.get(str(color_id), f"ID {color_id}")
+        color_name = COLOR_MAP.get(str(cid), f"Color {cid}")
         
-        # 1. FIND FAMILY UNITS (ID + Condition only)
-        possible_units = FAMILIES.get(pid, {}).get(cond, set())
+        # FIND THE FAMILY UNITS
+        units_with_this_part = FAMILIES.get(pid, {}).get(cond, set())
         
-        suggestion = "NO FAMILY FOUND"
-        reason = "New Item ID for this store."
+        suggestion = "NEW DRAWER REQUIRED"
         found = False
         
-        if possible_units:
-            # Sort units to try and fill the lowest numbered drawer first
-            sorted_units = sorted(list(possible_units))
-            
-            for unit_id in sorted_units:
-                # Get unit capacity from your Auditor profile
-                unit_cap = 1
+        if units_with_this_part:
+            # Sort so we try to fill D001 before D099
+            for unit in sorted(list(units_with_this_part)):
+                # Default capacity if not found in Auditor Profile
+                cap = 20 
                 for cat in st.session_state.get('temp_categories', []):
-                    if unit_id.startswith(cat['prefix']):
-                        unit_cap = cat['cap']
+                    if unit.startswith(cat['prefix']):
+                        cap = cat['cap']
                         break
                 
-                # 2. FIND FIRST EMPTY HOLE IN THAT UNIT
-                for h in range(1, unit_cap + 1):
-                    if h not in OCC_HOLES[unit_id]:
-                        suggestion = f"{unit_id}-{h}"
-                        reason = f"Matched Family ID {pid} in {unit_id}"
-                        OCC_HOLES[unit_id].add(h) # Soft-lock the hole
+                # FIND THE FIRST HOLE
+                for h in range(1, cap + 1):
+                    if h not in OCCUPIED[unit]:
+                        suggestion = f"{unit}-{h}"
+                        OCCUPIED[unit].add(h) # Soft-lock for next item in list
                         found = True
                         break
                 if found: break
 
-        # Update XML
+        # Update the Remark in the XML
         rem_node = item.find("REMARKS")
         if rem_node is None: rem_node = ET.SubElement(item, "REMARKS")
         rem_node.text = suggestion
 
-        display_data.append({
-            "Item ID": pid,
+        results.append({
+            "Part ID": pid,
             "Color": color_name,
-            "Cond": "NEW" if cond == "N" else "USED",
-            "Suggested Remark": suggestion,
-            "Logic": reason
+            "Cond": "New" if cond == 'N' else 'Used',
+            "Family Units": ", ".join(units_with_this_part) if units_with_this_part else "None",
+            "Suggested": suggestion
         })
 
-    # --- 4. DISPLAY & DOWNLOAD ---
-    st.dataframe(display_data, use_container_width=True)
+    st.dataframe(results, use_container_width=True)
     
-    xml_out = ET.tostring(new_root, encoding='utf-8')
-    st.download_button(
-        "💾 DOWNLOAD PROCESSED XML",
-        data=xml_out,
-        file_name="Family_Mapped_Stock.xml",
-        mime="application/xml",
-        type="primary"
-    )
+    # Export
+    xml_data = ET.tostring(root, encoding='utf-8')
+    st.download_button("💾 DOWNLOAD PROCESSED XML", data=xml_data, 
+                       file_name="Mapped_New_Stock.xml", mime="application/xml")
