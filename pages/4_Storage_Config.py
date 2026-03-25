@@ -28,14 +28,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Navigation Bar (6 Columns)
-nav = st.columns(6)
+# Navigation Bar (5 Columns)
+nav = st.columns(5)
 nav[0].page_link("Home.py", label="HOME", icon="🏠")
 nav[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
 nav[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
 nav[3].page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
 nav[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
-nav[5].page_link("pages/5_Stock_Ingest.py", label="INGEST", icon="📥")
+
 st.divider()
 
 # --- 2. DATA LOAD/SAVE ---
