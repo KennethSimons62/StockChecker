@@ -20,14 +20,13 @@ if not st.session_state.get('xml_data'):
     st.warning("⚠️ Please upload your main Store XML on the HOME page first.")
     st.stop()
 
-# --- 2. PRE-PROCESS MAIN STORE ---
+# --- 2. PRE-PROCESS MAIN STORE (FIXED FOR CACHING) ---
 @st.cache_data
 def map_store_locations(xml_bytes):
     root = ET.fromstring(xml_bytes)
-    # Map: PartID -> Condition -> Set of Location Strings (e.g., "D104-1")
-    id_map = defaultdict(lambda: defaultdict(set))
-    # Map: UnitID (e.g., "D104") -> Set of occupied Holes {1, 2}
-    occupied_holes = defaultdict(set)
+    # Use standard dicts for compatibility with st.cache_data
+    id_map = {} # PartID -> Condition -> List of Locations
+    occupied_holes = {} # UnitID -> List of occupied Holes
     
     for item in root.findall(".//ITEM"):
         pid = item.find("ITEMID").text
@@ -35,19 +34,33 @@ def map_store_locations(xml_bytes):
         rem = (item.find("REMARKS").text or "").strip()
         
         if rem:
+            # 1. Update ID Map
+            if pid not in id_map: id_map[pid] = {}
+            if cond not in id_map[pid]: id_map[pid][cond] = set()
             id_map[pid][cond].add(rem)
-            # Extract Unit and Hole (e.g., D104 and 1)
+            
+            # 2. Update Occupied Holes
+            # Regex picks up the Unit (D104) and the Hole (1)
             m = re.search(r'^([A-Za-z]*\d+)(?:[-/ ]+([0-9,/-]+))?', rem)
             if m:
                 unit, holes = m.groups()
+                if unit not in occupied_holes: occupied_holes[unit] = set()
                 if holes:
-                    # Quick parse of hole numbers
                     for h in re.split(r'[,/-]+', holes):
-                        if h.isdigit(): occupied_holes[unit].add(int(h))
-    return id_map, occupied_holes
+                        if h.isdigit(): 
+                            occupied_holes[unit].add(int(h))
 
-STORE_ID_MAP, OCCUPIED_HOLES = map_store_locations(st.session_state.xml_data)
+    # Convert sets to lists/dicts so Streamlit can serialize/cache them
+    final_id_map = {k: {ck: list(cv) for ck, cv in v.items()} for k, v in id_map.items()}
+    final_occupied = {k: list(v) for k, v in occupied_holes.items()}
+    
+    return final_id_map, final_occupied
 
+# Call the fixed function
+STORE_ID_MAP, OCCUPIED_HOLES_LIST = map_store_locations(st.session_state.xml_data)
+
+# Re-convert the occupied holes back to sets for FAST lookup during the loop
+OCCUPIED_HOLES = {k: set(v) for k, v in OCCUPIED_HOLES_LIST.items()}
 # --- 3. UPLOAD NEW STOCK ---
 st.title("📥 Smart Stock Ingest")
 st.markdown("Upload your BrickStore Part-Out file to find matching locations.")
