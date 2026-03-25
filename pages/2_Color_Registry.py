@@ -8,7 +8,7 @@ from collections import defaultdict
 st.set_page_config(page_title="Color Registry", page_icon="🎨", layout="wide")
 
 # Persistent Navigation Bar
-nav_cols = st.columns(4)
+nav_cols = st.columns(5)
 nav_cols[0].page_link("Home.py", label="HOME HUB", icon="🏠")
 nav_cols[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
 nav_cols[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")

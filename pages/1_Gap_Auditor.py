@@ -10,7 +10,7 @@ from collections import defaultdict
 st.set_page_config(page_title="Gap Auditor", page_icon="🔍", layout="wide")
 
 # Minimalist Navigation Bar (No black boxes)
-nav_cols = st.columns(4)
+nav_cols = st.columns(5)
 nav_cols[0].page_link("home.py", label="HOME HUB", icon="🏠")
 nav_cols[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
 nav_cols[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
