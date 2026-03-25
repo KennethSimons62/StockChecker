@@ -5,15 +5,39 @@ import os
 # --- 1. PAGE CONFIG & NAV ---
 st.set_page_config(page_title="Storage Config", page_icon="⚙️", layout="wide")
 
-nav_cols = st.columns(5)
-nav_cols[0].page_link("Home.py", label="HOME HUB", icon="🏠")
-nav_cols[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
-nav_cols[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
-nav_cols[3].page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
-nav_cols[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
+# Custom CSS for "Sexifying" the UI and increasing font sizes
+st.markdown("""
+    <style>
+    /* Increase Checkbox Label Size (+2 points equivalent) */
+    .stCheckbox label p {
+        font-size: 1.2rem !important;
+        font-weight: 600 !important;
+    }
+    /* Increase General Text Size */
+    .stMarkdown p {
+        font-size: 1.1rem !important;
+    }
+    /* Style the Save Box at the top */
+    .save-container {
+        background-color: rgba(59, 130, 246, 0.1);
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid #3b82f6;
+        margin-bottom: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Navigation Bar (5 Columns)
+nav = st.columns(5)
+nav[0].page_link("Home.py", label="HOME", icon="🏠")
+nav[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
+nav[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
+nav[3].page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
+nav[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
 st.divider()
 
-# --- 2. LOAD DATA ---
+# --- 2. DATA LOAD/SAVE ---
 CONFIG_FILE = "storage_conditions.json"
 
 def load_config():
@@ -29,45 +53,56 @@ def save_config(data):
 if 'storage_tags' not in st.session_state:
     st.session_state.storage_tags = load_config()
 
-# --- 3. UI SETUP ---
-st.title("⚙️ Storage Condition Configuration")
-st.markdown("Tag your main storage units to enforce NEW or USED purity.")
+# --- 3. TOP SAVE BOX ---
+with st.container():
+    st.markdown('<div class="save-container">', unsafe_allow_html=True)
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.subheader("💾 Master Save Control")
+        st.write("Changes are stored in memory until you hit Save. **Save regularly!**")
+    with c2:
+        if st.button("💾 SAVE ALL CHANGES", use_container_width=True, type="primary"):
+            save_config(st.session_state.storage_tags)
+            st.success("Configuration Secured!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# We pull the categories from your existing Auditor Profile
+# --- 4. CATEGORY ACCORDIONS ---
 if 'temp_categories' not in st.session_state:
-    st.info("Please visit the Auditor page first to load your profile.")
+    st.error("No storage profile found. Please visit the Auditor page first.")
     st.stop()
 
-# --- 4. THE TICKBOX GRID ---
-for cat in st.session_state.temp_categories:
-    st.subheader(f"📂 Category: {cat['name']}")
-    
-    start, end = int(cat['start']), int(cat['end'])
-    prefix = cat['prefix'].upper()
-    
-    # Create a grid for the units
-    cols = st.columns(6) 
-    for i, n in enumerate(range(start, end + 1)):
-        unit_id = f"{prefix}{n}"
-        
-        with cols[i % 6]:
-            # Current state (Default to USED if not set)
-            current_is_new = st.session_state.storage_tags.get(unit_id, "USED") == "NEW"
-            
-            # The Toggle
-            label = f"**{unit_id}**"
-            is_new = st.checkbox(label, value=current_is_new, key=f"cfg_{unit_id}")
-            
-            # Update State
-            st.session_state.storage_tags[unit_id] = "NEW" if is_new else "USED"
-            
-            # Visual Indicator
-            tag_color = "#3b82f6" if is_new else "#64748b"
-            tag_text = "NEW" if is_new else "USED"
-            st.markdown(f"<span style='font-size:10px; color:{tag_color}; font-weight:bold;'>{tag_text}</span>", unsafe_allow_html=True)
+st.title("⚙️ Storage Condition Manager")
 
-# --- 5. SAVE ---
+for cat in st.session_state.temp_categories:
+    # Each category gets its own expander to keep the page clean
+    with st.expander(f"📁 Edit {cat['name']} ({cat['prefix']}{cat['start']} - {cat['prefix']}{cat['end']})"):
+        st.info(f"Toggle the switch to set unit as **NEW** (Checked) or **USED** (Unchecked).")
+        
+        start, end = int(cat['start']), int(cat['end'])
+        prefix = str(cat['prefix']).upper().strip()
+        
+        # Grid layout for checkboxes
+        cols = st.columns(6) 
+        for i, n in enumerate(range(start, end + 1)):
+            unit_id = f"{prefix}{n}"
+            
+            with cols[i % 6]:
+                # Get current state from session
+                current_val = st.session_state.storage_tags.get(unit_id, "USED") == "NEW"
+                
+                # Checkbox with larger font (via CSS above)
+                is_new = st.checkbox(f"{unit_id}", value=current_val, key=f"cfg_{unit_id}")
+                
+                # Update session state immediately on click
+                st.session_state.storage_tags[unit_id] = "NEW" if is_new else "USED"
+                
+                # Visual Indicator text
+                status_color = "#3b82f6" if is_new else "#94a3b8"
+                status_text = "NEW" if is_new else "USED"
+                st.markdown(f"<span style='color:{status_color}; font-size: 0.8rem; font-weight:bold;'>{status_text}</span>", unsafe_allow_html=True)
+
+# --- 5. FOOTER SAVE ---
 st.divider()
-if st.button("💾 SAVE STORAGE CONFIGURATION", use_container_width=True):
+if st.button("💾 FINAL SAVE", key="bottom_save"):
     save_config(st.session_state.storage_tags)
-    st.success("Storage condition tags saved successfully!")
+    st.success("All settings saved to storage_conditions.json")
