@@ -6,6 +6,14 @@ import os  # <--- This was the missing piece causing your error
 import pandas as pd
 from collections import defaultdict
 
+def load_storage_tags():
+    if os.path.exists("storage_conditions.json"):
+        with open("storage_conditions.json", "r") as f:
+            return json.load(f)
+    return {}
+
+STORAGE_TAGS = load_storage_tags() # Load the NEW/USED rules
+
 # --- 1. PAGE CONFIG & SLEEK NAV ---
 st.set_page_config(page_title="Gap Auditor", page_icon="🔍", layout="wide")
 
@@ -192,3 +200,73 @@ for idx, cat in enumerate(st.session_state.temp_categories):
                         for itm in data['items']:
                             c_name = COLOR_MAP.get(itm['cid'], f"Color {itm['cid']}")
                             st.write(f"  * {itm['qty']}x {itm['name']} ({c_name})")
+
+# --- 6. UPGRADED AUDIT RESULTS ---
+st.subheader("🔍 Gap Audit & Purity Check")
+tabs = st.tabs([c['name'] for c in st.session_state.temp_categories])
+
+for idx, cat in enumerate(st.session_state.temp_categories):
+    with tabs[idx]:
+        pref = str(cat['prefix']).upper().strip()
+        cap = int(cat['cap'])
+        
+        for n in range(int(cat['start']), int(cat['end']) + 1):
+            uid = get_clean_id(pref, n)
+            
+            # --- PURITY LOGIC ---
+            # What IS the unit supposed to be? (From your Config page)
+            assigned_cond = STORAGE_TAGS.get(uid, "NOT SET") 
+            
+            udata = container_stats.get(uid, {})
+            umatches = {}
+            has_purity_error = False
+
+            for h in range(1, cap + 1):
+                hinfo = udata.get(h, {"qty": 0, "conds": set(), "items": []})
+                
+                # Determine current status of the slot
+                if hinfo["qty"] == 0: c_state = "EMPTY"
+                elif len(hinfo["conds"]) > 1: c_state = "MIXED"
+                elif "N" in hinfo["conds"]: c_state = "NEW"
+                else: c_state = "USED"
+
+                # Check for Purity Conflict:
+                # If the unit is tagged "NEW" but the slot has "USED" parts (or vice-versa)
+                if assigned_cond != "NOT SET" and c_state not in ["EMPTY", "MIXED"]:
+                    if c_state != assigned_cond:
+                        has_purity_error = True
+
+                # Filter logic
+                if hinfo["qty"] <= qty_threshold:
+                    if (purity_filter == "Show All") or (purity_filter.startswith(c_state.split()[0])):
+                        umatches[h] = {"qty": hinfo["qty"], "state": c_state, "items": hinfo["items"]}
+
+            # --- RENDER THE BOX ---
+            if umatches:
+                total_parts = sum(m['qty'] for m in umatches.values())
+                
+                # Visual Alerts
+                label_prefix = "⚠️ PURITY ERROR" if has_purity_error else "✅"
+                if total_parts == 0: 
+                    icon, label = "🆓", "EMPTY UNIT"
+                else: 
+                    icon, label = "🧱", f"{total_parts} Parts ({assigned_cond})"
+
+                # The Expander header changes color/text if there's a mismatch
+                with st.expander(f"{label_prefix} {icon} {uid} — {label}"):
+                    if has_purity_error:
+                        st.error(f"🚨 **CONFLICT:** This unit is designated as **{assigned_cond}**, but contains items marked otherwise!")
+                    
+                    for h_n, data in umatches.items():
+                        col_a, col_b = st.columns([1, 4])
+                        col_a.markdown(f"**Slot {h_n}**")
+                        
+                        # Color code the slot state
+                        s_color = "green" if data['state'] == assigned_cond else "red"
+                        if data['state'] == "EMPTY": s_color = "gray"
+                        
+                        col_b.markdown(f":{s_color}[{data['state']}]")
+                        
+                        for itm in data['items']:
+                            c_name = COLOR_MAP.get(itm['cid'], f"ID {itm['cid']}")
+                            st.caption(f"↳ {itm['qty']}x {itm['name']} ({c_name})")
