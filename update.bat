@@ -27,7 +27,7 @@ if "%choice%"=="4" exit
 :run_app
 echo.
 echo Launching Streamlit...
-streamlit run app.py
+streamlit run home.py
 pause
 goto menu
 
