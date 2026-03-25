@@ -16,6 +16,10 @@ nav[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
 nav[5].page_link("pages/5_Stock_Ingest.py", label="INGEST", icon="📥")
 st.divider()
 
+if st.button("🔄 CLEAR APP MEMORY & RE-READ STORE"):
+    st.cache_data.clear()
+    st.rerun()
+
 # --- 2. DATA LOADERS ---
 def load_json_file(filename):
     if os.path.exists(filename):
