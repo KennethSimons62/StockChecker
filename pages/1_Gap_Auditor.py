@@ -15,6 +15,7 @@ nav_cols[0].page_link("home.py", label="HOME HUB", icon="🏠")
 nav_cols[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
 nav_cols[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
 nav_cols[3].page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
+nav_cols[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
 st.divider()
 
 # --- 2. ASSETS & DIRECTORY CHECKS ---

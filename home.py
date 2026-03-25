@@ -15,6 +15,7 @@ nav1.page_link("home.py", label="HOME HUB", icon="🏠")
 nav2.page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
 nav3.page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
 nav4.page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
+nav5.page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
 st.divider()
 
 # --- 3. MAIN CONTENT ---
