@@ -9,14 +9,15 @@ st.set_page_config(page_title="LEGO Hub", page_icon="🏠", layout="wide")
 if 'xml_data' not in st.session_state:
     st.session_state.xml_data = None
 
-# --- 2. UPDATED NAVIGATION BAR (5 COLUMNS) ---
-# We are expanding to 5 columns to fit the new Config page
-nav = st.columns(5)
+# --- 2. UPDATED NAVIGATION BAR (6 COLUMNS) ---
+# We are expanding to 6 columns to fit the new Config page
+nav = st.columns(6)
 nav[0].page_link("Home.py", label="HOME", icon="🏠")
 nav[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
 nav[2].page_link("pages/2_Color_Registry.py", label="COLORS", icon="🎨")
 nav[3].page_link("pages/3_Condition_Guard.py", label="GUARD", icon="⚠️")
 nav[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
+nav[5].page_link("pages/5_Stock_Ingest.py", label="INGEST", icon="📥")
 st.divider()
 
 # --- 3. MAIN CONTENT ---
