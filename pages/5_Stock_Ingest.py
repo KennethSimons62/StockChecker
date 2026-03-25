@@ -6,6 +6,7 @@ import json
 
 # --- 1. PAGE CONFIG & NAV ---
 st.set_page_config(page_title="Stock Ingest", page_icon="📥", layout="wide")
+
 nav = st.columns(6)
 nav[0].page_link("Home.py", label="HOME", icon="🏠")
 nav[1].page_link("pages/1_Gap_Auditor.py", label="AUDITOR", icon="🔍")
@@ -15,120 +16,115 @@ nav[4].page_link("pages/4_Storage_Config.py", label="CONFIG", icon="⚙️")
 nav[5].page_link("pages/5_Stock_Ingest.py", label="INGEST", icon="📥")
 st.divider()
 
-# --- 2. THE FAMILY ENGINE ---
+# --- 2. DATA LOADERS ---
+def load_json_file(filename):
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            return json.load(f)
+    return {}
+
+COLOR_MAP = load_json_file("color_registry.json")
+
 @st.cache_data
-def analyze_store_families(xml_bytes):
-    """Creates a map of where every Part ID lives, regardless of color."""
+def analyze_vessels(xml_bytes):
+    """Maps Part IDs to their 'Home Vessels' (e.g., C151) and tracks occupied holes."""
+    if not xml_bytes: return {}, {}
     root = ET.fromstring(xml_bytes)
-    # PartID -> Condition -> Set of Units (e.g. '2431' -> 'U' -> {'C062', 'C089'})
-    family_map = {}
-    # UnitID -> Set of taken holes (e.g. 'C062' -> {1, 2, 18})
-    occupied_holes = {}
+    
+    family_vessels = {} # PartID -> Condition -> Set of Vessel IDs (e.g. 'C151')
+    occupied_holes = {} # VesselID -> Set of Hole Numbers
 
     for item in root.findall(".//ITEM"):
         pid = item.find("ITEMID").text
         cond = item.find("CONDITION").text.upper()
         rem = (item.find("REMARKS").text or "").strip()
-
+        
         if rem and rem != "**":
-            # Extract Unit and Hole. Supports 'C062-18', 'D025-01/02', '0352' (treated as unit 0352)
-            # This regex captures the primary location identifier
-            match = re.search(r'^([A-Za-z]*\d+)(?:[-/ ]+([0-9,/-]+))?', rem)
-            if match:
-                unit_id, hole_str = match.groups()
+            # Regex captures the Vessel (C151) and ignores the specific hole for mapping
+            m = re.search(r'^([A-Za-z]*\d+)(?:[-/ ]+([0-9,/-]+))?', rem)
+            if m:
+                vessel_id, hole_str = m.groups()
                 
-                # Add to family knowledge
-                if pid not in family_map: family_map[pid] = {}
-                if cond not in family_map[pid]: family_map[pid][cond] = set()
-                family_map[pid][cond].add(unit_id)
-
-                # Add to hole occupancy
-                if unit_id not in occupied_holes: occupied_holes[unit_id] = set()
+                # Link Part to this Vessel
+                if pid not in family_vessels: family_vessels[pid] = {}
+                if cond not in family_vessels[pid]: family_vessels[pid][cond] = set()
+                family_vessels[pid][cond].add(vessel_id)
+                
+                # Track occupied holes within this Vessel
+                if vessel_id not in occupied_holes: occupied_holes[vessel_id] = set()
                 if hole_str:
-                    # Split '01/02' or '16-18' into individual numbers
                     for h in re.split(r'[,/-]+', hole_str):
-                        if h.isdigit(): occupied_holes[unit_id].add(int(h))
+                        if h.isdigit(): occupied_holes[vessel_id].add(int(h))
 
-    # Convert sets to lists for Streamlit caching
-    clean_families = {k: {ck: list(cv) for ck, cv in v.items()} for k, v in family_map.items()}
+    # Serialize for cache
+    clean_vessels = {k: {ck: list(cv) for ck, cv in v.items()} for k, v in family_vessels.items()}
     clean_holes = {k: list(v) for k, v in occupied_holes.items()}
-    return clean_families, clean_holes
+    return clean_vessels, clean_holes
 
-# --- 3. PAGE LOGIC ---
+# --- 3. PROCESSING ---
 if not st.session_state.get('xml_data'):
-    st.error("❌ No Main Inventory! Upload store.xml on the HOME page.")
+    st.error("⚠️ Please upload store.xml on the HOME page first.")
     st.stop()
 
-# Load Family Maps
-F_LIST, H_LIST = analyze_store_families(st.session_state.xml_data)
-FAMILIES = {k: {ck: set(cv) for ck, cv in v.items()} for k, v in F_LIST.items()}
-OCCUPIED = {k: set(v) for k, v in H_LIST.items()}
+V_LIST, H_LIST = analyze_vessels(st.session_state.xml_data)
+FAMILY_VESSELS = {k: {ck: set(cv) for ck, cv in v.items()} for k, v in V_LIST.items()}
+OCC_HOLES = {k: set(v) for k, v in H_LIST.items()}
 
-# Load Color Registry
-if os.path.exists("color_registry.json"):
-    with open("color_registry.json", "r") as f:
-        COLOR_MAP = json.load(f)
-else:
-    COLOR_MAP = {}
+st.title("📥 Vessel-First Stock Ingest")
+st.markdown("Groups new parts into the same **Case/Box** where the family already lives.")
 
-st.title("📥 Family-Match Stock Ingest")
-st.markdown("Assigns locations based strictly on **Part ID + Condition**.")
+ingest_file = st.file_uploader("Upload newstock.xml", type="xml")
 
-new_file = st.file_uploader("Upload newstock.xml", type="xml")
-
-if new_file:
-    tree = ET.parse(new_file)
-    root = tree.getroot()
-    results = []
-
-    for item in root.findall(".//ITEM"):
+if ingest_file:
+    new_tree = ET.parse(ingest_file)
+    new_root = new_tree.getroot()
+    display_data = []
+    
+    for item in new_root.findall(".//ITEM"):
         pid = item.find("ITEMID").text
         cond = item.find("CONDITION").text.upper()
         cid = item.find("COLOR").text
-        
         color_name = COLOR_MAP.get(str(cid), f"Color {cid}")
         
-        # FIND THE FAMILY UNITS
-        units_with_this_part = FAMILIES.get(pid, {}).get(cond, set())
+        # FIND THE HOME VESSEL
+        target_vessels = FAMILY_VESSELS.get(pid, {}).get(cond, set())
         
-        suggestion = "NEW DRAWER REQUIRED"
+        suggestion = "NEW VESSEL REQ."
         found = False
         
-        if units_with_this_part:
-            # Sort so we try to fill D001 before D099
-            for unit in sorted(list(units_with_this_part)):
-                # Default capacity if not found in Auditor Profile
-                cap = 20 
+        if target_vessels:
+            for v_id in sorted(list(target_vessels)):
+                # Determine Capacity
+                unit_cap = 20 # Fallback
                 for cat in st.session_state.get('temp_categories', []):
-                    if unit.startswith(cat['prefix']):
-                        cap = cat['cap']
+                    if v_id.startswith(cat['prefix']):
+                        unit_cap = cat['cap']
                         break
                 
-                # FIND THE FIRST HOLE
-                for h in range(1, cap + 1):
-                    if h not in OCCUPIED[unit]:
-                        suggestion = f"{unit}-{h}"
-                        OCCUPIED[unit].add(h) # Soft-lock for next item in list
+                # SCAN VESSEL FOR ANY EMPTY HOLE
+                for h in range(1, unit_cap + 1):
+                    if h not in OCC_HOLES.get(v_id, set()):
+                        suggestion = f"{v_id}-{h:02d}"
+                        if v_id not in OCC_HOLES: OCC_HOLES[v_id] = set()
+                        OCC_HOLES[v_id].add(h) # Lock it for this run
                         found = True
                         break
                 if found: break
 
-        # Update the Remark in the XML
+        # Update XML
         rem_node = item.find("REMARKS")
         if rem_node is None: rem_node = ET.SubElement(item, "REMARKS")
         rem_node.text = suggestion
 
-        results.append({
-            "Part ID": pid,
+        display_data.append({
+            "Part": pid,
             "Color": color_name,
-            "Cond": "New" if cond == 'N' else 'Used',
-            "Family Units": ", ".join(units_with_this_part) if units_with_this_part else "None",
-            "Suggested": suggestion
+            "Vessel(s) Found": ", ".join(target_vessels) if target_vessels else "None",
+            "Suggested Slot": suggestion
         })
 
-    st.dataframe(results, use_container_width=True)
+    st.dataframe(display_data, use_container_width=True)
     
     # Export
-    xml_data = ET.tostring(root, encoding='utf-8')
-    st.download_button("💾 DOWNLOAD PROCESSED XML", data=xml_data, 
-                       file_name="Mapped_New_Stock.xml", mime="application/xml")
+    xml_out = ET.tostring(new_root, encoding='utf-8')
+    st.download_button("💾 DOWNLOAD XML", data=xml_out, file_name="Vessel_Mapped_Stock.xml", type="primary")
