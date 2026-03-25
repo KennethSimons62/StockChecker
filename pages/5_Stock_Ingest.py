@@ -120,14 +120,81 @@ if ingest_file:
             "Suggested": suggestion
         })
 
-    # --- 4. DISPLAY & EXPORT ---
-    st.table(results)
+    # --- 4. DATA LOOKUP & DISPLAY ---
+# Helper for color names (Matches your Registry logic)
+@st.cache_data
+def get_color_map():
+    # Standard BrickLink Color Map snippet
+    return {
+        "1": "White", "2": "Tan", "3": "Yellow", "4": "Orange", "5": "Red",
+        "6": "Green", "7": "Blue", "8": "Brown", "9": "Light Gray", "10": "Dark Gray",
+        "11": "Black", "12": "Medium Orange", "13": "Pink", "14": "Bright Pink",
+        "15": "White", "17": "Light Green", "18": "Light Yellow", "19": "Dark Blue",
+        "20": "Light Aqua", "23": "Bright Pink", "25": "Orange", "26": "Light Purple",
+        "27": "Dark Turquoise", "28": "Dark Tan", "29": "Bright Light Blue",
+        "31": "Medium Dark Pink", "32": "Light Lime", "33": "Light Blue",
+        "34": "Lime", "35": "Light Orange", "36": "Bright Light Orange",
+        "37": "Medium Orange", "38": "Bright Light Yellow", "39": "Dark Red",
+        "40": "Dark Orange", "41": "Aqua", "42": "Medium Blue", "43": "Violet",
+        "44": "Dark Pink", "46": "Yellowish Green", "47": "Dark Pink",
+        "48": "Sand Green", "49": "Very Light Gray", "50": "Dark Gray",
+        "51": "Salmon", "54": "Light Pink", "55": "Sand Blue", "56": "Light Salmon",
+        "57": "Sand Red", "58": "Very Light Orange", "59": "Dark Brown",
+        "60": "White", "62": "Medium Blue", "63": "Dark Blue-Gray", "68": "Dark Orange",
+        "69": "Dark Tan", "70": "Medium Dark Flesh", "71": "Light Bluish Gray",
+        "72": "Dark Bluish Gray", "73": "Medium Violet-Heiler", "74": "Medium Lime",
+        "76": "Medium Green", "77": "Light Flesh", "78": "Dark Flesh",
+        "80": "Dark Green", "81": "Flat Silver", "82": "Medium Orange",
+        "84": "Medium Dark Gray", "85": "Dark Bluish Gray", "86": "Light Bluish Gray",
+        "89": "Dark Purple", "90": "Light Flesh", "91": "Dark Flesh",
+        "150": "Medium Nougat", "155": "Olive Green", "156": "Medium Azure",
+        "212": "Bright Light Carnation", "216": "Sand Green"
+    }
+
+COLOR_MAP = get_color_map()
+
+if ingest_file:
+    # ... (Keep the XML processing logic from the previous step) ...
     
-    # Export back to XML
+    results = []
+    for item in new_items:
+        pid = item.find("ITEMID").text
+        cond = item.find("CONDITION").text.upper()
+        color_id = item.find("COLOR").text
+        
+        # Look up the Color Name
+        color_name = COLOR_MAP.get(str(color_id), f"ID {color_id}")
+        
+        # ... (Suggestion logic from previous step) ...
+        
+        results.append({
+            "Part ID": pid,
+            "Color": color_name,  # Now showing the Name
+            "Condition": "NEW" if cond == "N" else "USED",
+            "Suggested Location": suggestion
+        })
+
+    # --- RENDER TABLE ---
+    st.subheader("📋 Suggested Placements")
+    st.dataframe(
+        results, 
+        use_container_width=True,
+        column_config={
+            "Suggested Location": st.column_config.TextColumn(
+                "Suggested Location",
+                help="Based on where this Part ID currently lives in your store.",
+                width="large",
+            )
+        }
+    )
+    
+    # --- DOWNLOAD BUTTON ---
     updated_xml = ET.tostring(new_root, encoding='utf-8')
     st.download_button(
-        "💾 Download Updated XML for BrickStore",
+        "💾 DOWNLOAD UPDATED XML",
         data=updated_xml,
         file_name="Smart_Ingest_Results.xml",
-        mime="application/xml"
+        mime="application/xml",
+        use_container_width=True,
+        type="primary"
     )
