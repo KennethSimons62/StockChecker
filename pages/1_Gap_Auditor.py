@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # --- 1. VERSION & TRACEABILITY ---
-VERSION = "5.6.12 - RANGE UPDATE"
+VERSION = "5.7.0 - MULTI-UNIT SUPPORT"
 DEVELOPER = "Kenneth Simons (Mr Brick UK)"
 SCRIPT_PATH = os.path.abspath(__file__)
 LAST_MODIFIED = datetime.fromtimestamp(os.path.getmtime(SCRIPT_PATH)).strftime('%Y-%m-%d %H:%M:%S')
@@ -142,21 +142,25 @@ def get_clean_id(prefix, number):
     except: return f"{prefix}{number}"
 
 def parse_holes(expr):
+    """Parses a string like '01/04' or '01-04' into a set of integers {1, 2, 3, 4}."""
     holes = set()
     if not expr: return {1}
-    # Standardize range symbols: treat / and \ as hyphens to handle C001-01/04 or C001-01-04
+    # Treat slashes as hyphens for range logic
     clean = str(expr).replace('/', '-').replace('\\', '-').replace(' ', '')
     for p in re.split(r'[,;]+', clean):
         if not p: continue
         if '-' in p:
             try:
                 pts = p.split('-')
-                start = int(pts[0])
-                end = int(pts[-1])
+                # Use first and last parts to handle potential double-hyphens
+                start = int(re.search(r'\d+', pts[0]).group())
+                end = int(re.search(r'\d+', pts[-1]).group())
                 holes.update(range(start, end + 1))
             except: continue
         else:
-            try: holes.add(int(p))
+            try: 
+                val = int(re.search(r'\d+', p).group())
+                holes.add(val)
             except: continue
     return holes if holes else {1}
 
@@ -182,39 +186,70 @@ try:
     for item in items:
         rem_node = item.find("REMARKS")
         if rem_node is not None and rem_node.text:
-            rem = rem_node.text.strip()
-            # Regex captures prefix, number, and the potential range/hole string
-            m = re.search(r'^([A-Za-z]*)(\d+)(?:[-/\\ ]+([0-9/\\,-]+))?', rem)
-            if m:
-                pref, num, h_raw = m.groups()
-                norm_id = get_clean_id(pref or "", num)
+            # Split by comma for multiple locations (e.g., "C001-01, 0063/0064")
+            raw_locations = re.split(r'[,;]', rem_node.text.strip())
+            for loc_str in raw_locations:
+                loc_str = loc_str.strip()
+                if not loc_str: continue
+
+                # NEW PARSING LOGIC: Distinguish between Unit Range and Hole Range
+                # Split at the first hyphen to separate Unit from Hole
+                if '-' in loc_str:
+                    # Potential Unit-Hole format (e.g. C001-01)
+                    # We only split at the hyphen if it's not part of a leading range
+                    m_pref_check = re.search(r'^[A-Za-z]+', loc_str)
+                    if m_pref_check:
+                        # Has prefix (C001-01), split at hyphen
+                        parts = loc_str.split('-', 1)
+                        unit_expr, hole_expr = parts[0], parts[1]
+                    else:
+                        # No prefix (0063-0064), treat as range of units, no holes
+                        unit_expr, hole_expr = loc_str, None
+                else:
+                    # No hyphen (0063/0064 or C001), treat entire string as Unit Range
+                    unit_expr, hole_expr = loc_str, None
+
+                # Extract Prefix and Unit Numbers
+                m_pref = re.search(r'^([A-Za-z]*)', unit_expr)
+                prefix = m_pref.group(1) if m_pref else ""
+                unit_nums = parse_holes(unit_expr.replace(prefix, ""))
+                
+                # Extract Hole Numbers (default to 1)
+                hole_nums = parse_holes(hole_expr) if hole_expr else {1}
+
+                # Common Item Data
                 cid = str(item.find("COLOR").text)
                 cond = (item.find("CONDITION").text or "U").upper()
                 qty = int(item.find("QTY").text or 0)
                 p_id = item.find("ITEMID").text
                 p_name = CATALOG_LOOKUP.get(p_id, f"Part {p_id}")
-                
-                container_contents[norm_id].append({"id": p_id, "name": p_name, "cid": cid, "cond": cond, "qty": qty, "h": h_raw or "1"})
-                
-                h_set = parse_holes(h_raw)
-                for h in h_set:
-                    container_stats[norm_id][h]["qty"] += qty
-                    container_stats[norm_id][h]["conds"].add(cond)
-                    container_stats[norm_id][h]["color_ids"].add(cid)
 
-    # Clue extraction for Color Registry
+                # Distribute across all units and all holes
+                for u_num in unit_nums:
+                    norm_id = get_clean_id(prefix, u_num)
+                    
+                    # Track content for clue extraction and condition guard
+                    container_contents[norm_id].append({
+                        "id": p_id, "name": p_name, "cid": cid, "cond": cond, 
+                        "qty": qty, "h_list": hole_nums
+                    })
+                    
+                    for h in hole_nums:
+                        container_stats[norm_id][h]["qty"] += qty
+                        container_stats[norm_id][h]["conds"].add(cond)
+                        container_stats[norm_id][h]["color_ids"].add(cid)
+
+    # Clue extraction
     for loc_id, holes in container_stats.items():
         for hole_num, stats in holes.items():
             for target_cid in stats['color_ids']:
                 if target_cid not in st.session_state.color_map:
                     for content in container_contents[loc_id]:
-                        h_content_set = parse_holes(content['h'])
-                        if hole_num in h_content_set:
+                        if hole_num in content['h_list']:
                             clue_text = f"<b>{content['name']}</b> at 📍 <b>{loc_id}{' ('+str(hole_num)+')' if hole_num > 1 else ''}</b>"
                             if clue_text not in pure_clues_map[target_cid]:
                                 pure_clues_map[target_cid].append(clue_text)
 
-    # (Logic for Gap Auditor, Color Registry, and Condition Guard remains as per app.py structure)
     # --- MODE: COLOR REGISTRY ---
     if app_mode == "Color Registry":
         all_found_cids = sorted(list(pure_clues_map.keys()), key=lambda x: int(x) if x.isdigit() else 999)
@@ -252,6 +287,7 @@ try:
         if st.session_state.color_map:
             all_cids = sorted(st.session_state.color_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)
             filtered = [c for c in all_cids if reg_search.lower() in c.lower() or reg_search.lower() in st.session_state.color_map[c].lower()] if reg_search else all_cids
+
             cols = st.columns(15) 
             for i, cid in enumerate(filtered):
                 with cols[i % 15]:
@@ -297,7 +333,7 @@ try:
                         st.write(f"**{row['qty']}x** {row['name']} — {c_n} ({row['cid']}) [**{row['cond']}**]")
 
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Error Processing XML: {e}")
 
 if st.button("🔄 Clear Upload"):
     st.session_state.xml_data = None
